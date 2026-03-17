@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QR Attendance System</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+</head>
+<body>
+<div class="landing">
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+
+  <div class="landing-inner">
+    <div class="brand-badge">
+      <span>🎓</span>
+      <span>QR · ATTENDANCE · SYSTEM</span>
+    </div>
+
+    <h1 class="landing-title">Smart Classroom<br>Attendance via QR</h1>
+    <p class="landing-subtitle">
+      One-time QR codes, real-time scanning, instant attendance marking —
+      built for modern classrooms.
+    </p>
+
+    <div class="role-grid">
+
+      <!-- Student Card -->
+      <div class="role-card student">
+        <div class="role-icon">📱</div>
+        <div class="role-label">Student</div>
+        <p class="role-desc">Scan teacher-generated QR codes to mark your attendance. View history and percentage.</p>
+        <div class="role-links">
+          <a href="/student/login" class="filled">Login</a>
+          <a href="/student/register">Register</a>
+        </div>
+      </div>
+
+      <!-- Teacher Card -->
+      <div class="role-card teacher">
+        <div class="role-icon">🖥️</div>
+        <div class="role-label">Teacher</div>
+        <p class="role-desc">Generate time-limited QR codes, manage your class, and export attendance reports.</p>
+        <div class="role-links">
+          <a href="/teacher/login" class="filled">Login</a>
+          <a href="/teacher/register">Register</a>
+        </div>
+      </div>
+
+      <!-- Admin Card -->
+      <div class="role-card admin">
+        <div class="role-icon">⚙️</div>
+        <div class="role-label">Admin</div>
+        <p class="role-desc">Manage students, teachers, and classes. Monitor system activity from one dashboard.</p>
+        <div class="role-links">
+          <a href="/admin/login" class="filled">Login</a>
+        </div>
+      </div>
+
+    </div><!-- /.role-grid -->
+
+    <p style="margin-top:2.5rem; font-size:.78rem; color: var(--text-muted);">
+      Default Admin &nbsp;·&nbsp; <code style="color:var(--cyan)">admin@qrpro.com</code>
+      &nbsp;/&nbsp; <code style="color:var(--cyan)">admin123</code>
+    </p>
+  </div>
+</div>
+</body>
+</html>
