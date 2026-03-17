@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Teacher Login – QR Attendance</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}"/>
+</head>
+<body class="teacher-role">
+<div class="auth-page">
+  <div class="auth-box">
+
+    <div class="auth-logo">
+      <div class="auth-logo-icon" style="background:var(--amber-glow); border:1px solid var(--teacher-clr);">🖥️</div>
+      <div class="auth-logo-text">
+        QR Attendance
+        <small>Teacher Portal</small>
+      </div>
+    </div>
+
+    <h1 class="auth-title">Teacher Sign In</h1>
+    <p class="auth-subtitle">Generate QR codes and manage your class attendance</p>
+
+    {% if msg %}
+    <div class="alert alert-error">{{ msg }}</div>
+    {% endif %}
+
+    <form method="POST">
+      <div class="form-group">
+        <label>Email Address</label>
+        <input type="email" name="email" placeholder="teacher@school.com" required />
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" name="password" placeholder="••••••••" required />
+      </div>
+      <button type="submit" class="btn btn-primary">Sign In →</button>
+    </form>
+
+    <p class="auth-footer">
+      New teacher? <a href="/teacher/register">Register here</a>
+    </p>
+    <p class="auth-footer" style="margin-top:.5rem;">
+      <a href="/" style="color:var(--text-muted);">← Back to Home</a>
+    </p>
+
+  </div>
+</div>
+</body>
+</html>

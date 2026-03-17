@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Teacher Dashboard – QR Attendance Pro</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}"/>
+  <style>
+    :root{--role-color:var(--teacher-clr);--role-glow:var(--amber-glow);}
+    .sidebar-logo-icon{background:var(--amber-glow);border:1px solid var(--teacher-clr);}
+    .sidebar-avatar{background:var(--amber-glow);color:var(--teacher-clr);border:2px solid var(--teacher-clr);}
+    .profile-avatar{background:var(--amber-glow);color:var(--teacher-clr);border:3px solid var(--teacher-clr);}
+
+    /* Location lock toggle section */
+    .loc-section{
+      margin-top:1.25rem;
+      padding:1rem 1.1rem;
+      background:var(--bg-base);
+      border:1px solid var(--border);
+      border-radius:var(--radius-sm);
+    }
+    .loc-toggle-row{
+      display:flex;align-items:center;gap:.75rem;margin-bottom:0;
+    }
+    .loc-toggle-row label{font-weight:600;font-size:.875rem;cursor:pointer;flex:1;}
+    /* Toggle switch */
+    .toggle-sw{position:relative;width:46px;height:24px;flex-shrink:0;}
+    .toggle-sw input{opacity:0;width:0;height:0;position:absolute;}
+    .toggle-track{
+      position:absolute;inset:0;border-radius:99px;
+      background:var(--bg-card-alt);border:1px solid var(--border);
+      cursor:pointer;transition:background .2s;
+    }
+    .toggle-track::after{
+      content:'';position:absolute;top:3px;left:3px;
+      width:16px;height:16px;border-radius:50%;
+      background:var(--text-muted);transition:transform .2s,background .2s;
+    }
+    .toggle-sw input:checked + .toggle-track{background:var(--teacher-clr);border-color:var(--teacher-clr);}
+    .toggle-sw input:checked + .toggle-track::after{transform:translateX(22px);background:#fff;}
+
+    /* Location options shown when toggle is on */
+    .loc-options{
+      display:none;margin-top:1rem;
+      padding-top:.9rem;border-top:1px solid var(--border);
+    }
+    .loc-options.show{display:block;}
+
+    .loc-status-box{
+      padding:.65rem .9rem;border-radius:var(--radius-sm);
+      font-size:.82rem;font-weight:500;line-height:1.5;
+      border:1px solid;margin-top:.75rem;display:none;
+    }
+    .loc-status-success{background:rgba(16,185,129,.1);color:#6ee7b7;border-color:rgba(16,185,129,.3);}
+    .loc-status-error  {background:rgba(239,68,68,.1);color:#fca5a5;border-color:rgba(239,68,68,.3);}
+    .loc-status-info   {background:rgba(6,182,212,.1);color:#67e8f9;border-color:rgba(6,182,212,.3);}
+
+    /* QR display card */
+    .qr-loc-badge{
+      display:inline-block;margin-top:.5rem;padding:.25rem .75rem;
+      border-radius:99px;font-size:.72rem;font-weight:600;
+    }
+    .badge-loc-on {background:rgba(16,185,129,.15);color:#6ee7b7;border:1px solid rgba(16,185,129,.3);}
+    .badge-loc-off{background:rgba(107,114,128,.15);color:var(--text-muted);border:1px solid var(--border);}
+  </style>
+</head>
+<body>
+<div class="app-shell">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">
+        <div class="sidebar-logo-icon">🖥️</div>
+        <div class="sidebar-logo-name">QR Attendance<small>Teacher Portal</small></div>
+      </div>
+    </div>
+    <div class="sidebar-user">
+      <div class="sidebar-avatar">{{ teacher.name[0]|upper }}</div>
+      <div class="sidebar-user-info">
+        <div class="sidebar-user-name">{{ teacher.name }}</div>
+        <div class="sidebar-user-role">🟡 Teacher</div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-group-label">Main</div>
+      <button class="nav-item active" onclick="showPanel('profile',this)"><span class="nav-icon">👤</span>My Profile</button>
+      <button class="nav-item" onclick="showPanel('qrgen',this)"><span class="nav-icon">📲</span>Generate QR Code</button>
+      <div class="nav-group-label">Class</div>
+      <button class="nav-item" onclick="showPanel('students',this)"><span class="nav-icon">👥</span>Class Students</button>
+      <button class="nav-item" onclick="showPanel('timetable',this)"><span class="nav-icon">📅</span>Manage Timetable</button>
+      <button class="nav-item" onclick="showPanel('report',this)"><span class="nav-icon">📊</span>Attendance Report</button>
+    </nav>
+    <div class="sidebar-footer"><a href="/logout" class="logout-btn"><span>🚪</span>Logout</a></div>
+  </aside>
+  <div class="sidebar-overlay" id="overlay" onclick="closeSidebar()"></div>
+
+  <!-- MAIN -->
+  <main class="main-content">
+    <div class="topbar">
+      <div>
+        <div class="topbar-title" id="panel-title">My Profile</div>
+        <div class="topbar-subtitle">{{ teacher.teacher_id }} · {{ teacher.class_name or 'No class assigned' }}</div>
+      </div>
+      <button class="hamburger" onclick="openSidebar()">☰</button>
+    </div>
+
+    <div class="content-area">
+
+      <!-- PROFILE -->
+      <div id="panel-profile" class="panel active">
+        <div class="profile-header">
+          <div class="profile-avatar">{{ teacher.name[0]|upper }}</div>
+          <div>
+            <div class="profile-name">{{ teacher.name }}</div>
+            <div class="profile-sub">Teacher · {{ teacher.teacher_id }}</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title"><span class="title-icon">📋</span>Teacher Information</div>
+          <div class="profile-fields">
+            <div class="profile-field"><label>Full Name</label><p>{{ teacher.name }}</p></div>
+            <div class="profile-field"><label>Teacher ID</label><p>{{ teacher.teacher_id }}</p></div>
+            <div class="profile-field"><label>Email</label><p>{{ teacher.email }}</p></div>
+            <div class="profile-field"><label>Department</label><p>{{ teacher.department or '—' }}</p></div>
+            <div class="profile-field"><label>Assigned Class</label><p>{{ teacher.class_name or '—' }}</p></div>
+          </div>
+          <div style="margin-top:1.5rem;padding-top:1.25rem;border-top:1px solid var(--border);">
+            <a href="/forgot-password" class="btn btn-ghost btn-sm" style="width:auto;">🔑 Change Password</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- QR GENERATOR -->
+      <div id="panel-qrgen" class="panel">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;max-width:900px;">
+
+          <!-- ── Settings Card ── -->
+          <div class="card">
+            <div class="card-title"><span class="title-icon">⚙️</span>QR Code Settings</div>
+
+            <div class="form-group">
+              <label>Select Class</label>
+              <select id="qr-class">
+                <option value="">Choose class…</option>
+                {% for cls in classes %}<option value="{{ cls.id }}">{{ cls.class_name }}</option>{% endfor %}
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label>Subject / Topic</label>
+              <input type="text" id="qr-subject" placeholder="e.g. Data Structures – Unit 2"/>
+            </div>
+
+            <div class="form-group">
+              <label>QR Expiry Time</label>
+              <select id="qr-expiry">
+                <option value="1">1 minute</option>
+                <option value="2" selected>2 minutes</option>
+                <option value="5">5 minutes</option>
+                <option value="10">10 minutes</option>
+                <option value="15">15 minutes</option>
+                <option value="30">30 minutes</option>
+              </select>
+            </div>
+
+            <!-- ══ LOCATION LOCK SECTION ══════════════════════ -->
+            <div class="loc-section">
+              <div class="loc-toggle-row">
+                <span style="font-size:1.1rem;">📍</span>
+                <label for="loc-toggle">Enable Location Lock</label>
+                <label class="toggle-sw">
+                  <input type="checkbox" id="loc-toggle" onchange="onLocToggle()"/>
+                  <div class="toggle-track"></div>
+                </label>
+              </div>
+              <p style="font-size:.75rem;color:var(--text-muted);margin:.45rem 0 0 1.85rem;line-height:1.5;">
+                When ON, students must be physically present within the allowed radius to mark attendance.
+              </p>
+
+              <!-- Options shown when toggle is ON -->
+              <div class="loc-options" id="loc-options">
+
+                <div class="form-group" style="margin-bottom:.75rem;">
+                  <label>Allowed Radius from Your Location</label>
+                  <select id="loc-radius">
+                    <option value="30">30 metres (small room)</option>
+                    <option value="50">50 metres</option>
+                    <option value="100" selected>100 metres (standard)</option>
+                    <option value="200">200 metres (large campus)</option>
+                    <option value="500">500 metres (outdoor)</option>
+                  </select>
+                </div>
+
+                <button class="btn btn-ghost btn-sm" id="loc-capture-btn"
+                  style="width:100%;justify-content:center;"
+                  onclick="captureTeacherLocation()">
+                  📡 Capture My Location
+                </button>
+
+                <div class="loc-status-box" id="loc-status-box"></div>
+
+                <!-- hidden fields storing captured coords -->
+                <input type="hidden" id="teacher-lat" value=""/>
+                <input type="hidden" id="teacher-lng" value=""/>
+              </div>
+            </div>
+            <!-- ═══════════════════════════════════════════════ -->
+
+            <button class="btn btn-primary" id="gen-btn"
+              style="width:100%;margin-top:1.25rem;"
+              onclick="generateQR()">
+              📲 Generate QR Code
+            </button>
+
+            <div id="qr-gen-error" class="alert alert-error" style="display:none;margin-top:.75rem;"></div>
+            <div id="qr-gen-loading" style="display:none;text-align:center;margin-top:1rem;">
+              <div class="loading-spinner"></div>
+              <p style="font-size:.85rem;color:var(--text-muted);margin-top:.5rem;">Generating QR Code…</p>
+            </div>
+          </div>
+
+          <!-- ── QR Display Card ── -->
+          <div class="card" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:380px;">
+            <!-- Placeholder -->
+            <div id="qr-placeholder" style="text-align:center;color:var(--text-muted);">
+              <div style="font-size:4rem;margin-bottom:1rem;opacity:.3;">📲</div>
+              <p style="font-size:.9rem;">Generate a QR code to display to your class</p>
+            </div>
+
+            <!-- QR shown after generation -->
+            <div id="qr-display" style="display:none;flex-direction:column;align-items:center;width:100%;">
+              <img id="qr-image" src="" alt="QR Code"
+                   style="width:240px;height:240px;border-radius:12px;
+                          border:3px solid var(--teacher-clr);
+                          background:#fff;padding:8px;display:block;
+                          margin:0 auto;
+                          box-shadow:0 0 40px var(--amber-glow);"/>
+
+              <div id="qr-meta" style="margin:.75rem 0 .25rem;font-size:.82rem;color:var(--text-muted);text-align:center;"></div>
+
+              <!-- Location lock badge -->
+              <div id="qr-loc-badge-wrap" style="margin-bottom:.5rem;"></div>
+
+              <div id="countdown-display" style="text-align:center;">
+                <div class="countdown-ring" id="countdown-num">—</div>
+                <div class="countdown-label">seconds remaining</div>
+              </div>
+              <div id="scan-count-display" style="margin-top:.75rem;">
+                <span class="badge badge-blue" id="scan-count-badge">0 scans</span>
+              </div>
+              <div id="expired-msg" class="countdown-expired" style="display:none;margin-top:.75rem;">⏰ QR Code Expired</div>
+            </div>
+          </div>
+
+        </div><!-- end grid -->
+      </div>
+
+      <!-- STUDENTS -->
+      <div id="panel-students" class="panel">
+        <div class="card">
+          <div class="card-title" style="justify-content:space-between;flex-wrap:wrap;gap:.5rem;">
+            <span><span class="title-icon">👥</span>Class Students</span>
+            <select id="student-class-filter" onchange="loadClassStudents()"
+              style="background:var(--bg-input);border:1px solid var(--border);
+                     border-radius:var(--radius-sm);color:var(--text-primary);
+                     padding:.4rem .75rem;font-size:.85rem;outline:none;">
+              <option value="">My Class</option>
+              {% for cls in classes %}<option value="{{ cls.id }}">{{ cls.class_name }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>#</th><th>Name</th><th>Reg. No.</th><th>Email</th><th>Dept</th><th>Actions</th></tr></thead>
+              <tbody id="students-body">
+                <tr><td colspan="6"><div class="empty-state"><div class="empty-icon">👥</div><p>Loading…</p></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- TIMETABLE -->
+      <div id="panel-timetable" class="panel">
+        <div class="card">
+          <div class="card-title" style="justify-content:space-between;flex-wrap:wrap;gap:.5rem;">
+            <span><span class="title-icon">📅</span>Manage Timetable</span>
+            <div style="display:flex;gap:.5rem;align-items:center;">
+              <select id="tt-class-sel" onchange="loadTTManager()"
+                style="background:var(--bg-input);border:1px solid var(--border);
+                       border-radius:var(--radius-sm);color:var(--text-primary);
+                       padding:.4rem .75rem;font-size:.85rem;outline:none;">
+                <option value="">Select class…</option>
+                {% for cls in classes %}<option value="{{ cls.id }}">{{ cls.class_name }}</option>{% endfor %}
+              </select>
+              <button class="btn btn-primary btn-sm" style="width:auto;" onclick="openAddTT()">+ Add Entry</button>
+            </div>
+          </div>
+          <div id="tt-manager-loading" style="display:none;text-align:center;padding:2rem;"><div class="loading-spinner"></div></div>
+          <div id="tt-manager-wrap" style="overflow-x:auto;display:none;"></div>
+          <div id="tt-manager-empty" class="empty-state" style="display:none;"><div class="empty-icon">📅</div><p>No timetable entries yet. Click + Add Entry to begin.</p></div>
+          <div id="tt-manager-hint" class="empty-state"><div class="empty-icon">📅</div><p>Select a class to view and manage its timetable.</p></div>
+        </div>
+      </div>
+
+      <!-- REPORT -->
+      <div id="panel-report" class="panel">
+        <div class="card">
+          <div class="card-title"><span><span class="title-icon">📊</span>Attendance Report</span></div>
+          <div style="display:flex;gap:.75rem;flex-wrap:wrap;margin-bottom:1.5rem;align-items:flex-end;">
+            <div class="form-group" style="margin:0;min-width:160px;"><label>Date</label><input type="date" id="report-date"/></div>
+            <div class="form-group" style="margin:0;min-width:160px;"><label>Class</label>
+              <select id="report-class">
+                <option value="">All classes</option>
+                {% for cls in classes %}<option value="{{ cls.id }}">{{ cls.class_name }}</option>{% endfor %}
+              </select>
+            </div>
+            <button class="btn btn-primary btn-sm" style="width:auto;" onclick="loadReport()">🔍 Load</button>
+            <button class="btn btn-ghost btn-sm" style="width:auto;" onclick="exportCSV()">⬇ Export CSV</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>#</th><th>Student</th><th>Reg. No.</th><th>Class</th><th>Subject</th><th>Status</th><th>Time</th><th>Location</th></tr></thead>
+              <tbody id="report-body">
+                <tr><td colspan="8"><div class="empty-state"><div class="empty-icon">📊</div><p>Select a date and load the report</p></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- content-area -->
+  </main>
+</div>
+
+<!-- Edit Student Modal -->
+<div class="modal-overlay" id="edit-modal">
+  <div class="modal">
+    <div class="modal-header"><span class="modal-title">Edit Student</span><button class="modal-close" onclick="closeModal('edit-modal')">✕</button></div>
+    <input type="hidden" id="edit-sid"/>
+    <div class="form-group"><label>Full Name</label><input type="text" id="edit-name"/></div>
+    <div class="form-group"><label>Register Number</label><input type="text" id="edit-reg"/></div>
+    <div class="form-group"><label>Email</label><input type="email" id="edit-email"/></div>
+    <div class="form-group"><label>Department</label><input type="text" id="edit-dept"/></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('edit-modal')">Cancel</button>
+      <button class="btn btn-primary btn-sm" style="width:auto;" onclick="saveStudent()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Timetable Modal -->
+<div class="modal-overlay" id="add-tt-modal">
+  <div class="modal">
+    <div class="modal-header"><span class="modal-title">Add Timetable Entry</span><button class="modal-close" onclick="closeModal('add-tt-modal')">✕</button></div>
+    <div class="form-row">
+      <div class="form-group"><label>Day</label>
+        <select id="tt-day">
+          <option>Monday</option><option>Tuesday</option><option>Wednesday</option>
+          <option>Thursday</option><option>Friday</option><option>Saturday</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Period No.</label><input type="number" id="tt-period" min="1" max="10" value="1"/></div>
+    </div>
+    <div class="form-group"><label>Subject</label><input type="text" id="tt-subject" placeholder="e.g. Data Structures"/></div>
+    <div class="form-row">
+      <div class="form-group"><label>Start Time</label><input type="time" id="tt-start"/></div>
+      <div class="form-group"><label>End Time</label><input type="time" id="tt-end"/></div>
+    </div>
+    <div id="tt-error" class="alert alert-error" style="display:none;"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('add-tt-modal')">Cancel</button>
+      <button class="btn btn-primary btn-sm" style="width:auto;" onclick="saveTT()">Add Entry</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Panel nav ─────────────────────────────────────────────
+const titles={
+  profile:'My Profile', qrgen:'Generate QR Code',
+  students:'Class Students', timetable:'Manage Timetable', report:'Attendance Report'
+};
+function showPanel(n,el){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(i=>i.classList.remove('active'));
+  document.getElementById('panel-'+n).classList.add('active');
+  if(el)el.classList.add('active');
+  document.getElementById('panel-title').textContent=titles[n]||n;
+  closeSidebar();
+  if(n==='students') loadClassStudents();
+  if(n==='timetable') loadTTManager();
+  if(n==='report'){ setTodayDate(); loadReport(); }
+}
+function openSidebar(){document.getElementById('sidebar').classList.add('open');document.getElementById('overlay').classList.add('show');}
+function closeSidebar(){document.getElementById('sidebar').classList.remove('open');document.getElementById('overlay').classList.remove('show');}
+function closeModal(id){document.getElementById(id).classList.remove('show');}
+
+// ═══════════════════════════════════════════════════════
+// LOCATION LOCK FEATURE
+// ═══════════════════════════════════════════════════════
+let teacherLat = null;
+let teacherLng = null;
+let locationCaptured = false;
+
+function onLocToggle(){
+  const on = document.getElementById('loc-toggle').checked;
+  const opts = document.getElementById('loc-options');
+  opts.classList.toggle('show', on);
+  if(!on){
+    // Reset location when turning off
+    teacherLat=null; teacherLng=null; locationCaptured=false;
+    setLocStatus('','');
+    document.getElementById('teacher-lat').value='';
+    document.getElementById('teacher-lng').value='';
+  }
+}
+
+function setLocStatus(type, msg){
+  const el=document.getElementById('loc-status-box');
+  el.className='loc-status-box';
+  if(!type||!msg){el.style.display='none';return;}
+  el.classList.add('loc-status-'+type);
+  el.style.display='block';
+  el.textContent=msg;
+}
+
+async function captureTeacherLocation(){
+  const btn=document.getElementById('loc-capture-btn');
+  if(!navigator.geolocation){
+    setLocStatus('error','❌ Geolocation is not supported by your browser.');
+    return;
+  }
+  btn.disabled=true;
+  btn.textContent='📡 Getting location…';
+  setLocStatus('info','⏳ Requesting GPS location, please wait…');
+
+  navigator.geolocation.getCurrentPosition(
+    pos=>{
+      teacherLat=pos.coords.latitude;
+      teacherLng=pos.coords.longitude;
+      locationCaptured=true;
+      document.getElementById('teacher-lat').value=teacherLat;
+      document.getElementById('teacher-lng').value=teacherLng;
+      const acc=Math.round(pos.coords.accuracy);
+      setLocStatus('success',
+        `✅ Location captured! (${teacherLat.toFixed(5)}, ${teacherLng.toFixed(5)}) — Accuracy ±${acc}m\n` +
+        `Students must scan within the selected radius from this point.`);
+      btn.disabled=false;
+      btn.textContent='📡 Re-capture Location';
+    },
+    err=>{
+      locationCaptured=false;
+      const msgs={
+        1:'❌ Location access denied. Please allow location in browser settings.',
+        2:'❌ Location unavailable. Check GPS/Network connection.',
+        3:'❌ Location request timed out. Please try again.'
+      };
+      setLocStatus('error', msgs[err.code]||'❌ Could not get location.');
+      btn.disabled=false;
+      btn.textContent='📡 Retry Capture';
+    },
+    {enableHighAccuracy:true, timeout:12000, maximumAge:0}
+  );
+}
+
+// ── QR Generator ──────────────────────────────────────────
+let countdownTimer = null;
+let scanTimer      = null;
+let activeSessionId = null;
+
+async function generateQR(){
+  const classId = document.getElementById('qr-class').value;
+  const subject = document.getElementById('qr-subject').value.trim();
+  const expiry  = document.getElementById('qr-expiry').value;
+  const locOn   = document.getElementById('loc-toggle').checked;
+  const errDiv  = document.getElementById('qr-gen-error');
+  const loading = document.getElementById('qr-gen-loading');
+
+  errDiv.style.display='none';
+
+  // Basic validation
+  if(!classId||!subject){
+    errDiv.textContent='Please select a class and enter a subject.';
+    errDiv.style.display='block'; return;
+  }
+
+  // Location lock validation
+  if(locOn && !locationCaptured){
+    errDiv.textContent='Location Lock is enabled but your location has not been captured yet. '
+      +'Click "Capture My Location" first.';
+    errDiv.style.display='block'; return;
+  }
+
+  // Clear old timers
+  if(countdownTimer){clearInterval(countdownTimer);countdownTimer=null;}
+  if(scanTimer){clearInterval(scanTimer);scanTimer=null;}
+
+  loading.style.display='block';
+  document.getElementById('gen-btn').disabled=true;
+
+  const body={
+    class_id        : classId,
+    subject         : subject,
+    expiry_minutes  : expiry,
+    location_enabled: locOn,
+    teacher_lat     : locOn ? teacherLat : null,
+    teacher_lng     : locOn ? teacherLng : null,
+    location_radius : locOn ? parseInt(document.getElementById('loc-radius').value) : 100
+  };
+
+  try{
+    const r=await fetch('/api/generate_qr',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(body)
+    });
+    const d=await r.json();
+    loading.style.display='none';
+    document.getElementById('gen-btn').disabled=false;
+
+    if(!d.success){
+      errDiv.textContent=d.error||'Failed to generate QR code.';
+      errDiv.style.display='block'; return;
+    }
+
+    activeSessionId=d.session_id;
+
+    // Show QR image
+    document.getElementById('qr-image').src='data:image/png;base64,'+d.qr_image;
+    document.getElementById('qr-meta').textContent=
+      'Subject: '+subject+'  ·  Expiry: '+expiry+' min';
+
+    // Location badge
+    const badge=document.getElementById('qr-loc-badge-wrap');
+    if(d.location_enabled){
+      const r=d.location_radius;
+      badge.innerHTML=`<span class="qr-loc-badge badge-loc-on">📍 Location Lock ON · Within ${r}m</span>`;
+    }else{
+      badge.innerHTML='<span class="qr-loc-badge badge-loc-off">📍 No Location Lock</span>';
+    }
+
+    document.getElementById('qr-placeholder').style.display='none';
+    document.getElementById('qr-display').style.display='flex';
+    document.getElementById('expired-msg').style.display='none';
+    document.getElementById('countdown-display').style.display='block';
+    document.getElementById('scan-count-badge').textContent='0 scans';
+
+    // Countdown (expires_at already has T separator from server)
+    const expDate=new Date(d.expires_at);
+    updateCountdown(expDate);
+    countdownTimer=setInterval(()=>updateCountdown(expDate),1000);
+
+    // Scan count polling
+    updateScanCount();
+    scanTimer=setInterval(updateScanCount,3000);
+
+  }catch(e){
+    loading.style.display='none';
+    document.getElementById('gen-btn').disabled=false;
+    errDiv.textContent='Network error. Make sure Flask is running on port 5000.';
+    errDiv.style.display='block';
+  }
+}
+
+function updateCountdown(expDate){
+  const diff=Math.max(0,Math.round((expDate-new Date())/1000));
+  document.getElementById('countdown-num').textContent=diff;
+  if(diff===0){
+    clearInterval(countdownTimer);countdownTimer=null;
+    clearInterval(scanTimer);scanTimer=null;
+    document.getElementById('countdown-display').style.display='none';
+    document.getElementById('expired-msg').style.display='block';
+  }
+}
+
+async function updateScanCount(){
+  if(!activeSessionId)return;
+  try{
+    const r=await fetch('/api/qr_status/'+activeSessionId);
+    const d=await r.json();
+    if(d.scan_count!==undefined){
+      document.getElementById('scan-count-badge').textContent=
+        d.scan_count+' scan'+(d.scan_count!==1?'s':'');
+    }
+  }catch(e){}
+}
+
+// ── Students ──────────────────────────────────────────────
+async function loadClassStudents(){
+  const cid=document.getElementById('student-class-filter').value;
+  const tb=document.getElementById('students-body');
+  tb.innerHTML='<tr><td colspan="6" style="text-align:center"><div class="loading-spinner"></div></td></tr>';
+  try{
+    const url=cid?`/api/teacher/all_students/${cid}`:'/api/teacher/students';
+    const r=await fetch(url);const d=await r.json();
+    if(!d.students||!d.students.length){
+      tb.innerHTML='<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">👥</div><p>No students found</p></div></td></tr>';
+      return;
+    }
+    tb.innerHTML=d.students.map((s,i)=>`
+      <tr>
+        <td>${i+1}</td><td class="td-name">${s.name}</td><td>${s.register_number}</td>
+        <td>${s.email}</td><td>${s.department||'—'}</td>
+        <td><div class="action-btns">
+          <button class="btn btn-ghost btn-sm" onclick="openEdit(${s.id},'${esc(s.name)}','${esc(s.register_number)}','${esc(s.email)}','${esc(s.department||'')}')">✏️</button>
+          <button class="btn btn-danger btn-sm" onclick="delStudent(${s.id},this)">🗑️</button>
+        </div></td>
+      </tr>`).join('');
+  }catch(e){}
+}
+
+function openEdit(id,name,reg,email,dept){
+  document.getElementById('edit-sid').value=id;
+  document.getElementById('edit-name').value=name;
+  document.getElementById('edit-reg').value=reg;
+  document.getElementById('edit-email').value=email;
+  document.getElementById('edit-dept').value=dept;
+  document.getElementById('edit-modal').classList.add('show');
+}
+
+async function saveStudent(){
+  const id=document.getElementById('edit-sid').value;
+  const r=await fetch(`/api/teacher/student/${id}`,{
+    method:'PUT',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      name:document.getElementById('edit-name').value,
+      register_number:document.getElementById('edit-reg').value,
+      email:document.getElementById('edit-email').value,
+      department:document.getElementById('edit-dept').value
+    })});
+  if((await r.json()).success){closeModal('edit-modal');loadClassStudents();}
+}
+
+async function delStudent(id,btn){
+  if(!confirm('Remove this student?'))return;
+  btn.disabled=true;
+  const r=await fetch(`/api/teacher/student/${id}`,{method:'DELETE'});
+  if((await r.json()).success)loadClassStudents();
+}
+
+// ── Timetable ─────────────────────────────────────────────
+let ttClassId=null;
+async function loadTTManager(){
+  ttClassId=document.getElementById('tt-class-sel').value;
+  const loading=document.getElementById('tt-manager-loading');
+  const wrap=document.getElementById('tt-manager-wrap');
+  const empty=document.getElementById('tt-manager-empty');
+  const hint=document.getElementById('tt-manager-hint');
+  hint.style.display='none';
+  if(!ttClassId){hint.style.display='block';wrap.style.display='none';empty.style.display='none';return;}
+  loading.style.display='block';wrap.style.display='none';empty.style.display='none';
+  try{
+    const r=await fetch('/api/timetable/'+ttClassId);const d=await r.json();
+    loading.style.display='none';
+    if(!d.timetable||!d.timetable.length){empty.style.display='block';return;}
+    renderTTManager(d.timetable);wrap.style.display='block';
+  }catch(e){loading.style.display='none';empty.style.display='block';}
+}
+
+function renderTTManager(rows){
+  let h='<table style="width:100%;border-collapse:collapse;font-size:.85rem;">';
+  h+='<thead><tr style="background:var(--bg-base);">';
+  ['#','Day','Period','Subject','Start','End','Teacher','Action'].forEach(c=>{
+    h+=`<th style="padding:.65rem .75rem;text-align:left;font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--text-muted);border-bottom:1px solid var(--border);">${c}</th>`;
+  });
+  h+='</tr></thead><tbody>';
+  rows.forEach((r,i)=>{
+    h+=`<tr style="border-bottom:1px solid rgba(255,255,255,.04);">
+      <td style="padding:.65rem .75rem;color:var(--text-muted);">${i+1}</td>
+      <td style="padding:.65rem .75rem;font-weight:500;">${r.day_name}</td>
+      <td style="padding:.65rem .75rem;color:var(--text-muted);">P${r.period_no}</td>
+      <td style="padding:.65rem .75rem;font-weight:600;">${r.subject}</td>
+      <td style="padding:.65rem .75rem;color:var(--text-muted);">${r.start_time}</td>
+      <td style="padding:.65rem .75rem;color:var(--text-muted);">${r.end_time}</td>
+      <td style="padding:.65rem .75rem;color:var(--text-soft);">${r.teacher_name||'—'}</td>
+      <td style="padding:.65rem .75rem;"><button class="btn btn-danger btn-sm" onclick="deleteTT(${r.id},this)">🗑️</button></td>
+    </tr>`;
+  });
+  h+='</tbody></table>';
+  document.getElementById('tt-manager-wrap').innerHTML=h;
+}
+
+function openAddTT(){
+  if(!ttClassId){alert('Please select a class first.');return;}
+  document.getElementById('add-tt-modal').classList.add('show');
+}
+
+async function saveTT(){
+  const err=document.getElementById('tt-error');err.style.display='none';
+  const body={
+    class_id:ttClassId,
+    day_name:document.getElementById('tt-day').value,
+    period_no:document.getElementById('tt-period').value,
+    subject:document.getElementById('tt-subject').value.trim(),
+    start_time:document.getElementById('tt-start').value,
+    end_time:document.getElementById('tt-end').value
+  };
+  if(!body.subject||!body.start_time||!body.end_time){
+    err.textContent='Please fill all fields.';err.style.display='block';return;
+  }
+  const r=await fetch('/api/timetable/add',{method:'POST',
+    headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const d=await r.json();
+  if(d.success){closeModal('add-tt-modal');loadTTManager();}
+  else{err.textContent=d.error;err.style.display='block';}
+}
+
+async function deleteTT(id,btn){
+  if(!confirm('Delete this timetable entry?'))return;
+  btn.disabled=true;
+  const r=await fetch(`/api/timetable/delete/${id}`,{method:'DELETE'});
+  if((await r.json()).success)loadTTManager();
+}
+
+// ── Attendance Report ─────────────────────────────────────
+let reportData=[];
+function setTodayDate(){
+  document.getElementById('report-date').value=new Date().toISOString().split('T')[0];
+}
+
+async function loadReport(){
+  const dt=document.getElementById('report-date').value;
+  const cid=document.getElementById('report-class').value;
+  const tb=document.getElementById('report-body');
+  tb.innerHTML='<tr><td colspan="8" style="text-align:center"><div class="loading-spinner"></div></td></tr>';
+  try{
+    const r=await fetch(`/api/teacher/attendance_report?date=${dt}&class_id=${cid}`);
+    const d=await r.json();
+    reportData=d.report||[];
+    if(!reportData.length){
+      tb.innerHTML='<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">📊</div><p>No records for this date</p></div></td></tr>';
+      return;
+    }
+    tb.innerHTML=reportData.map((r,i)=>{
+      let locCell;
+      if(r.scan_lat && r.scan_lng){
+        const lat=parseFloat(r.scan_lat).toFixed(6);
+        const lng=parseFloat(r.scan_lng).toFixed(6);
+        const mapsUrl=`https://www.google.com/maps/@${r.scan_lat},${r.scan_lng},17z`;
+        locCell=`<a href="${mapsUrl}" target="_blank" style="color:var(--student-clr);font-size:.8rem;white-space:nowrap;">
+          📍 ${lat}, ${lng}
+        </a>`;
+      }else{
+        locCell=`<span style="color:var(--text-muted);font-size:.78rem;">— No location</span>`;
+      }
+      return `<tr>
+        <td>${i+1}</td><td class="td-name">${r.student_name}</td>
+        <td>${r.register_number}</td><td>${r.class_name||'—'}</td>
+        <td>${r.subject}</td>
+        <td><span class="badge badge-green">${r.status}</span></td>
+        <td>${r.scanned_at}</td>
+        <td>${locCell}</td>
+      </tr>`;
+    }).join('');
+  }catch(e){}
+}
+
+function exportCSV(){
+  if(!reportData.length){alert('Load a report first.');return;}
+  const cols=['Student','Register No.','Class','Subject','Status','Time','Latitude','Longitude'];
+  const rows=reportData.map(r=>[
+    r.student_name,r.register_number,r.class_name||'',r.subject,r.status,r.scanned_at,
+    r.scan_lat||'',r.scan_lng||''
+  ]);
+  const csv=[cols,...rows].map(r=>r.map(c=>`"${c}"`).join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download=`attendance_${document.getElementById('report-date').value}.csv`;
+  a.click();
+}
+
+function esc(s){return(s||'').replace(/'/g,"\\'");}
+</script>
+</body>
+</html>
