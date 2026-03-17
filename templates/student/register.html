@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Student Register – QR Attendance</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}"/>
+</head>
+<body class="student-role">
+<div class="auth-page">
+  <div class="auth-box wide">
+
+    <div class="auth-logo">
+      <div class="auth-logo-icon" style="background:var(--green-glow); border:1px solid var(--student-clr);">📱</div>
+      <div class="auth-logo-text">
+        QR Attendance
+        <small>Student Registration</small>
+      </div>
+    </div>
+
+    <h1 class="auth-title">Create account</h1>
+    <p class="auth-subtitle">Join your class and start tracking attendance</p>
+
+    {% if msg %}
+    <div class="alert alert-error">{{ msg }}</div>
+    {% endif %}
+
+    <form method="POST">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Full Name</label>
+          <input type="text" name="name" placeholder="Arjun Sharma" required />
+        </div>
+        <div class="form-group">
+          <label>Register Number</label>
+          <input type="text" name="register_number" placeholder="REG2024001" required />
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Email Address</label>
+        <input type="email" name="email" placeholder="you@student.com" required />
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Department</label>
+          <input type="text" name="department" placeholder="Computer Science" required />
+        </div>
+        <div class="form-group">
+          <label>Class</label>
+          <select name="class_id" required>
+            <option value="">Select class…</option>
+            {% for cls in classes %}
+            <option value="{{ cls.id }}">{{ cls.class_name }} — {{ cls.department }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" name="password" placeholder="Minimum 6 characters" required minlength="6"/>
+      </div>
+      <button type="submit" class="btn btn-primary">Create Account →</button>
+    </form>
+
+    <p class="auth-footer">
+      Already registered? <a href="/student/login">Sign in</a>
+    </p>
+    <p class="auth-footer" style="margin-top:.5rem;">
+      <a href="/" style="color:var(--text-muted);">← Back to Home</a>
+    </p>
+
+  </div>
+</div>
+</body>
+</html>

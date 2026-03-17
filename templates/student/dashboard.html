@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Student Dashboard – QR Attendance Pro</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}"/>
+  <style>
+    :root{--role-color:var(--student-clr);--role-glow:var(--green-glow);}
+    .sidebar-logo-icon{background:var(--green-glow);border:1px solid var(--student-clr);}
+    .sidebar-avatar{background:var(--green-glow);color:var(--student-clr);border:2px solid var(--student-clr);}
+    .profile-avatar{background:var(--green-glow);color:var(--student-clr);border:3px solid var(--student-clr);}
+    /* Notifications */
+    .notif-wrap{position:relative;}
+    .notif-bell{background:none;border:none;color:var(--text-soft);font-size:1.4rem;cursor:pointer;padding:.25rem;position:relative;}
+    .notif-badge{position:absolute;top:-4px;right:-4px;background:var(--red);color:#fff;font-size:.6rem;font-weight:700;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;}
+    .notif-panel{position:absolute;top:calc(100% + 8px);right:0;width:320px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-lg);z-index:500;overflow:hidden;display:none;}
+    .notif-panel.open{display:block;}
+    .notif-header{padding:.9rem 1rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+    .notif-header b{font-family:var(--font-head);font-size:.9rem;}
+    .notif-list{max-height:320px;overflow-y:auto;}
+    .notif-item{padding:.85rem 1rem;border-bottom:1px solid rgba(255,255,255,.04);}
+    .notif-item.unread{border-left:3px solid var(--student-clr);background:rgba(16,185,129,.04);}
+    .notif-title{font-size:.82rem;font-weight:600;margin-bottom:.2rem;}
+    .notif-msg{font-size:.75rem;color:var(--text-soft);line-height:1.4;}
+    .notif-time{font-size:.68rem;color:var(--text-muted);margin-top:.25rem;}
+    .notif-empty{padding:2rem;text-align:center;color:var(--text-muted);font-size:.85rem;}
+    /* Face */
+    .face-wrap{position:relative;border-radius:var(--radius);overflow:hidden;background:#000;max-width:360px;margin:0 auto;aspect-ratio:4/3;}
+    .face-wrap video,.face-wrap canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
+    .face-wrap canvas{z-index:2;}
+    .face-guide-overlay{position:absolute;inset:0;z-index:3;display:flex;align-items:center;justify-content:center;pointer-events:none;}
+    .face-oval{width:160px;height:200px;border:2px solid var(--student-clr);border-radius:50%;box-shadow:0 0 0 9999px rgba(0,0,0,.5);animation:fp 2s ease infinite;}
+    @keyframes fp{0%,100%{box-shadow:0 0 0 9999px rgba(0,0,0,.5),0 0 0 0 rgba(16,185,129,.4);}50%{box-shadow:0 0 0 9999px rgba(0,0,0,.5),0 0 0 12px rgba(16,185,129,0);}}
+    /* Step bar */
+    .step-bar{display:flex;align-items:center;gap:.5rem;margin-bottom:1.5rem;font-size:.8rem;}
+    .step-dot{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:700;flex-shrink:0;}
+    .step-line{flex:1;height:2px;background:var(--border);}
+    /* Timetable */
+    .tt-table{width:100%;border-collapse:separate;border-spacing:3px;min-width:580px;}
+    .tt-th{padding:.6rem .5rem;background:var(--bg-base);border-radius:6px;font-size:.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;font-weight:600;}
+    .tt-td{padding:.5rem .4rem;border-radius:6px;text-align:center;vertical-align:middle;font-size:.75rem;}
+    .tt-subject{font-weight:600;color:var(--text-primary);}
+    .tt-teacher{font-size:.65rem;color:var(--text-muted);margin-top:.15rem;}
+    .tt-time{font-size:.63rem;color:var(--student-clr);margin-top:.15rem;}
+    /* ID Card */
+    .id-card{width:320px;margin:0 auto;background:linear-gradient(135deg,#0d1321,#131d2e);border:2px solid var(--student-clr);border-radius:16px;overflow:hidden;box-shadow:0 0 40px var(--green-glow);}
+    .id-hdr{background:linear-gradient(135deg,var(--student-clr),var(--cyan));padding:1.25rem;text-align:center;}
+    .id-hdr h2{color:#000;font-family:var(--font-head);font-size:.95rem;margin-bottom:.2rem;}
+    .id-hdr p{color:rgba(0,0,0,.7);font-size:.72rem;}
+    .id-body{padding:1.5rem;}
+    .id-ava{width:72px;height:72px;border-radius:50%;background:var(--green-glow);border:3px solid var(--student-clr);display:flex;align-items:center;justify-content:center;font-size:1.8rem;font-weight:800;color:var(--student-clr);margin:0 auto 1rem;}
+    .id-name{font-family:var(--font-head);font-size:1.1rem;font-weight:800;text-align:center;margin-bottom:.2rem;}
+    .id-reg{text-align:center;color:var(--student-clr);font-size:.82rem;font-weight:600;margin-bottom:1rem;}
+    .id-fields{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;}
+    .id-field label{font-size:.62rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;display:block;}
+    .id-field p{font-size:.78rem;color:var(--text-primary);font-weight:500;}
+    .id-ftr{background:var(--bg-base);padding:.75rem 1.5rem;display:flex;justify-content:space-between;align-items:center;}
+    .id-ftr span{font-size:.68rem;color:var(--text-muted);}
+    .id-status-badge{background:var(--green-glow);border:1px solid var(--student-clr);border-radius:99px;padding:.2rem .7rem;font-size:.68rem;color:var(--student-clr);font-weight:600;}
+    .pct-big{font-family:var(--font-head);font-size:4rem;font-weight:800;color:var(--student-clr);}
+    .scan-status{padding:.7rem 1rem;border-radius:var(--radius-sm);font-weight:600;font-size:.875rem;margin-top:.75rem;}
+    /* Location getting overlay */
+    .loc-getting-box{padding:1rem;background:rgba(6,182,212,.08);border:1px solid rgba(6,182,212,.25);border-radius:var(--radius-sm);text-align:center;margin-top:.75rem;}
+    .loc-getting-box .loading-spinner{margin:0 auto .5rem;}
+  </style>
+</head>
+<body>
+<div class="app-shell">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">
+        <div class="sidebar-logo-icon">📱</div>
+        <div class="sidebar-logo-name">QR Attendance<small>Student Portal</small></div>
+      </div>
+    </div>
+    <div class="sidebar-user">
+      <div class="sidebar-avatar">{{ student.name[0]|upper }}</div>
+      <div class="sidebar-user-info">
+        <div class="sidebar-user-name">{{ student.name }}</div>
+        <div class="sidebar-user-role">🟢 Student</div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-group-label">Main</div>
+      <button class="nav-item active" onclick="showPanel('profile',this)"><span class="nav-icon">👤</span>My Profile</button>
+      <button class="nav-item" onclick="showPanel('scanner',this)"><span class="nav-icon">📷</span>QR Scanner</button>
+      <div class="nav-group-label">Features</div>
+      <button class="nav-item" onclick="showPanel('face',this)">
+        <span class="nav-icon">🤳</span>Face Setup
+        {% if not face_registered %}<span class="badge badge-amber" style="margin-left:auto;font-size:.58rem;padding:.15rem .45rem;">New</span>{% endif %}
+      </button>
+      <button class="nav-item" onclick="showPanel('timetable',this)"><span class="nav-icon">📅</span>Timetable</button>
+      <button class="nav-item" onclick="showPanel('idcard',this)"><span class="nav-icon">🪪</span>ID Card</button>
+      <div class="nav-group-label">Attendance</div>
+      <button class="nav-item" onclick="showPanel('history',this)"><span class="nav-icon">📋</span>History</button>
+      <button class="nav-item" onclick="showPanel('percentage',this)"><span class="nav-icon">📊</span>Percentage</button>
+    </nav>
+    <div class="sidebar-footer"><a href="/logout" class="logout-btn"><span>🚪</span>Logout</a></div>
+  </aside>
+  <div class="sidebar-overlay" id="overlay" onclick="closeSidebar()"></div>
+
+  <!-- MAIN -->
+  <main class="main-content">
+    <div class="topbar">
+      <div>
+        <div class="topbar-title" id="panel-title">My Profile</div>
+        <div class="topbar-subtitle">{{ student.register_number }} · {{ student.class_name or 'No class' }}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:1rem;">
+        <div class="notif-wrap">
+          <button class="notif-bell" id="notif-btn" onclick="toggleNotif()">
+            🔔<span class="notif-badge" id="notif-badge" {% if unread==0 %}style="display:none"{% endif %}>{{ unread }}</span>
+          </button>
+          <div class="notif-panel" id="notif-panel">
+            <div class="notif-header">
+              <b>🔔 Notifications</b>
+              <button class="btn btn-ghost btn-sm" onclick="markAllRead()" style="font-size:.7rem;padding:.25rem .6rem;">Mark all read</button>
+            </div>
+            <div class="notif-list" id="notif-list"><div class="notif-empty">Loading…</div></div>
+          </div>
+        </div>
+        <button class="hamburger" onclick="openSidebar()">☰</button>
+      </div>
+    </div>
+
+    <div class="content-area">
+
+      <!-- PROFILE -->
+      <div id="panel-profile" class="panel active">
+        <div class="profile-header">
+          <div class="profile-avatar">{{ student.name[0]|upper }}</div>
+          <div>
+            <div class="profile-name">{{ student.name }}</div>
+            <div class="profile-sub">{{ student.register_number }}</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title"><span class="title-icon">📋</span>Student Information</div>
+          <div class="profile-fields">
+            <div class="profile-field"><label>Full Name</label><p>{{ student.name }}</p></div>
+            <div class="profile-field"><label>Register Number</label><p>{{ student.register_number }}</p></div>
+            <div class="profile-field"><label>Email</label><p>{{ student.email }}</p></div>
+            <div class="profile-field"><label>Department</label><p>{{ student.department or '—' }}</p></div>
+            <div class="profile-field"><label>Class</label><p>{{ student.class_name or '—' }}</p></div>
+            <div class="profile-field"><label>Face Status</label>
+              <p>{% if face_registered %}<span class="badge badge-green">✓ Registered</span>
+              {% else %}<span class="badge badge-amber">⚠ Not Registered</span>{% endif %}</p>
+            </div>
+          </div>
+          <div style="margin-top:1.5rem;padding-top:1.25rem;border-top:1px solid var(--border);display:flex;gap:.75rem;flex-wrap:wrap;">
+            <a href="/forgot-password" class="btn btn-ghost btn-sm" style="width:auto;">🔑 Change Password</a>
+            <button class="btn btn-ghost btn-sm" onclick="showPanel('face',null)" style="width:auto;">🤳 Setup Face</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- FACE SETUP -->
+      <div id="panel-face" class="panel">
+        <div class="card" style="max-width:480px;margin:0 auto;">
+          <div class="card-title"><span class="title-icon">🤳</span>Face Verification Setup</div>
+          {% if face_registered %}
+          <div class="alert alert-success" style="margin-bottom:1rem;">✅ Face already registered. Re-capture below to update.</div>
+          {% else %}
+          <div class="alert alert-error" style="margin-bottom:1rem;">⚠️ Please register your face to use the QR scanner.</div>
+          {% endif %}
+          <p style="color:var(--text-soft);font-size:.875rem;margin-bottom:1.25rem;line-height:1.6;">
+            Position your face inside the oval, ensure good lighting, then click <strong>Capture &amp; Register</strong>.
+          </p>
+          <div class="face-wrap">
+            <video id="face-video" autoplay playsinline muted></video>
+            <canvas id="face-canvas"></canvas>
+            <div class="face-guide-overlay"><div class="face-oval"></div></div>
+          </div>
+          <div id="face-status" class="scan-status" style="display:none;"></div>
+          <div style="display:flex;gap:.75rem;margin-top:1.25rem;justify-content:center;flex-wrap:wrap;">
+            <button class="btn btn-primary btn-sm" id="face-start-btn" onclick="startFaceCamera()" style="width:auto;padding:.6rem 1.5rem;">▶ Start Camera</button>
+            <button class="btn btn-primary btn-sm" id="face-capture-btn" onclick="captureFace()" style="display:none;width:auto;padding:.6rem 1.5rem;">📸 Capture &amp; Register</button>
+            <button class="btn btn-ghost btn-sm" id="face-stop-btn" onclick="stopFaceCamera()" style="display:none;width:auto;">■ Stop</button>
+          </div>
+          <div style="margin-top:1.5rem;padding:1rem;background:var(--bg-base);border-radius:var(--radius-sm);font-size:.78rem;color:var(--text-muted);line-height:1.7;">
+            <strong style="color:var(--text-soft);">💡 Tips:</strong> Face camera directly · Good lighting · No glasses · Stay still
+          </div>
+        </div>
+      </div>
+
+      <!-- QR SCANNER (Face → Location → Scan) -->
+      <div id="panel-scanner" class="panel">
+        <div class="card" style="max-width:520px;margin:0 auto;">
+          <div class="card-title"><span class="title-icon">📷</span>QR Code Scanner</div>
+
+          <!-- 3-Step bar -->
+          <div class="step-bar" id="step-bar">
+            <div class="step-dot" id="s1-dot" style="background:var(--student-clr);color:#000;">1</div>
+            <span id="s1-lbl" style="color:var(--student-clr);font-weight:600;">Face Verify</span>
+            <div class="step-line"></div>
+            <div class="step-dot" id="s2-dot" style="background:var(--bg-card-alt);border:1px solid var(--border);color:var(--text-muted);">2</div>
+            <span id="s2-lbl" style="color:var(--text-muted);">Scan QR</span>
+            <div class="step-line"></div>
+            <div class="step-dot" id="s3-dot" style="background:var(--bg-card-alt);border:1px solid var(--border);color:var(--text-muted);">3</div>
+            <span id="s3-lbl" style="color:var(--text-muted);">Confirm</span>
+          </div>
+
+          <!-- ── STEP 1: Face Verify ── -->
+          <div id="scan-step-1">
+            {% if not face_registered %}
+            <div class="alert alert-error" style="margin-bottom:1rem;">
+              ⚠️ Face not registered. <a href="#" onclick="showPanel('face',null)" style="color:var(--student-clr);">Register now →</a>
+            </div>
+            {% endif %}
+            <p style="color:var(--text-soft);font-size:.875rem;margin-bottom:1rem;">Step 1: Verify your face before scanning.</p>
+            <div class="face-wrap" id="verify-wrap">
+              <video id="verify-video" autoplay playsinline muted></video>
+              <canvas id="verify-canvas"></canvas>
+              <div class="face-guide-overlay"><div class="face-oval"></div></div>
+            </div>
+            <div id="verify-status" class="scan-status" style="display:none;"></div>
+            <div style="display:flex;gap:.75rem;margin-top:1.25rem;justify-content:center;">
+              <button class="btn btn-primary btn-sm" id="verify-start-btn" onclick="startFaceVerify()" style="width:auto;padding:.6rem 1.5rem;">▶ Start Face Verify</button>
+              <button class="btn btn-primary btn-sm" id="verify-do-btn" onclick="doVerifyFace()" style="display:none;width:auto;padding:.6rem 1.5rem;">✓ Verify My Face</button>
+            </div>
+          </div>
+
+          <!-- ── STEP 2: Scan QR ── -->
+          <div id="scan-step-2" style="display:none;">
+            <div class="alert alert-success" style="margin-bottom:1.25rem;">✅ Face verified! Now scan the QR code.</div>
+            <div id="scanner-container">
+              <video id="scanner-video" autoplay playsinline muted></video>
+              <canvas id="scanner-canvas"></canvas>
+              <div class="scanner-overlay">
+                <div><div class="scan-frame"></div><div class="scan-line"></div></div>
+              </div>
+            </div>
+            <div id="scanner-status" class="scan-status" style="display:none;"></div>
+            <div style="display:flex;gap:.75rem;margin-top:1.25rem;justify-content:center;">
+              <button class="btn btn-primary btn-sm" id="btn-start" onclick="startScanner()" style="width:auto;">▶ Start Scanner</button>
+              <button class="btn btn-ghost btn-sm" id="btn-stop" onclick="stopScanner()" style="display:none;">■ Stop</button>
+            </div>
+          </div>
+
+          <!-- ── STEP 3: Confirm with Location ── -->
+          <div id="scan-step-3" style="display:none;">
+            <div id="confirm-box" style="padding:1.25rem;background:var(--bg-card-alt);border:1px solid var(--border);border-radius:var(--radius-sm);">
+              <p style="font-size:.875rem;color:var(--text-soft);margin-bottom:.5rem;">QR detected. Confirming attendance for:</p>
+              <p id="confirm-subject" style="font-family:var(--font-head);font-size:1.2rem;color:var(--student-clr);font-weight:800;margin-bottom:1rem;"></p>
+
+              <!-- Location getting status -->
+              <div id="loc-getting-box" class="loc-getting-box" style="display:none;">
+                <div class="loading-spinner"></div>
+                <p style="font-size:.82rem;color:var(--cyan);margin:0;">📍 Getting your location for verification…</p>
+                <p style="font-size:.75rem;color:var(--text-muted);margin:.3rem 0 0;">Please allow location access if prompted</p>
+              </div>
+
+              <!-- Location result -->
+              <div id="loc-result-box" style="display:none;margin-bottom:.75rem;padding:.6rem .9rem;border-radius:var(--radius-sm);font-size:.8rem;border:1px solid;"></div>
+
+              <div id="confirm-action-btns" style="display:flex;gap:.75rem;margin-top:.75rem;">
+                <button class="btn btn-primary btn-sm" id="confirm-btn" style="width:auto;" onclick="confirmAttendance()">✓ Mark Attendance</button>
+                <button class="btn btn-ghost btn-sm" onclick="cancelConfirm()">✕ Cancel</button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- TIMETABLE -->
+      <div id="panel-timetable" class="panel">
+        <div class="card">
+          <div class="card-title"><span class="title-icon">📅</span>Class Timetable – {{ student.class_name or 'Your Class' }}</div>
+          <div id="tt-loading" style="text-align:center;padding:2.5rem;">
+            <div class="loading-spinner"></div>
+            <p style="margin-top:.75rem;color:var(--text-muted);font-size:.85rem;">Loading timetable…</p>
+          </div>
+          <div id="tt-wrap" style="overflow-x:auto;display:none;"></div>
+          <div id="tt-empty" class="empty-state" style="display:none;">
+            <div class="empty-icon">📅</div>
+            <p>No timetable added yet.<br/>Ask your teacher to set up the timetable.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ID CARD -->
+      <div id="panel-idcard" class="panel">
+        <div class="card" style="max-width:400px;margin:0 auto;text-align:center;">
+          <div class="card-title" style="justify-content:center;"><span class="title-icon">🪪</span>Student ID Card</div>
+          <p style="color:var(--text-soft);font-size:.875rem;margin-bottom:1.5rem;">Your official student identity card</p>
+          <div class="id-card" id="id-card-el">
+            <div class="id-hdr"><h2>🎓 QR ATTENDANCE SYSTEM</h2><p>Student Identity Card</p></div>
+            <div class="id-body">
+              <div class="id-ava">{{ student.name[0]|upper }}</div>
+              <div class="id-name">{{ student.name }}</div>
+              <div class="id-reg">{{ student.register_number }}</div>
+              <div class="id-fields">
+                <div class="id-field"><label>Department</label><p>{{ student.department or '—' }}</p></div>
+                <div class="id-field"><label>Class</label><p>{{ student.class_name or '—' }}</p></div>
+                <div class="id-field"><label>Email</label><p style="font-size:.68rem;word-break:break-all;">{{ student.email }}</p></div>
+                <div class="id-field"><label>Academic Year</label><p>2024–2025</p></div>
+              </div>
+            </div>
+            <div class="id-ftr"><span>{{ student.register_number }}</span><span class="id-status-badge">✓ Active</span></div>
+          </div>
+          <div style="margin-top:1.5rem;display:flex;gap:.75rem;justify-content:center;flex-wrap:wrap;">
+            <button class="btn btn-primary btn-sm" onclick="printCard()" style="width:auto;padding:.65rem 1.5rem;">🖨️ Print ID Card</button>
+            <button class="btn btn-ghost btn-sm" onclick="saveCard()" style="width:auto;">💾 Save as PDF</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- HISTORY -->
+      <div id="panel-history" class="panel">
+        <div class="card">
+          <div class="card-title"><span class="title-icon">📋</span>Attendance History</div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>#</th><th>Date</th><th>Time</th><th>Subject</th><th>Class</th><th>Status</th></tr></thead>
+              <tbody id="history-body">
+                <tr><td colspan="6"><div class="empty-state"><div class="empty-icon">📋</div><p>Loading…</p></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- PERCENTAGE -->
+      <div id="panel-percentage" class="panel">
+        <div style="max-width:480px;margin:0 auto;">
+          <div class="card" style="text-align:center;padding:2.5rem 1.5rem;">
+            <div class="card-title" style="justify-content:center;"><span class="title-icon">📊</span>Attendance Percentage</div>
+            <div id="pct-value" class="pct-big">—</div>
+            <div style="color:var(--text-muted);font-size:.85rem;margin:-.5rem 0 1.5rem;">Overall attendance rate</div>
+            <div class="progress-bar" style="margin-bottom:1.5rem;">
+              <div class="progress-fill" id="pct-bar" style="width:0%"></div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
+              <div class="stat-card"><div class="stat-value" style="font-size:1.75rem;" id="pct-present">—</div><div class="stat-label">Attended</div></div>
+              <div class="stat-card"><div class="stat-value" style="font-size:1.75rem;" id="pct-total">—</div><div class="stat-label">Total</div></div>
+            </div>
+            <div id="pct-badge"></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
+<script>
+// ── Panel nav ─────────────────────────────────────────────
+const titles={
+  profile:'My Profile',scanner:'QR Scanner',face:'Face Setup',
+  timetable:'Timetable',idcard:'ID Card',
+  history:'Attendance History',percentage:'Attendance Percentage'
+};
+function showPanel(n,el){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(i=>i.classList.remove('active'));
+  document.getElementById('panel-'+n).classList.add('active');
+  if(el)el.classList.add('active');
+  document.getElementById('panel-title').textContent=titles[n]||n;
+  closeSidebar();
+  if(n==='history')   loadHistory();
+  if(n==='percentage')loadPct();
+  if(n==='timetable') loadTimetable();
+  if(n==='scanner')   resetScanner();
+}
+function openSidebar(){document.getElementById('sidebar').classList.add('open');document.getElementById('overlay').classList.add('show');}
+function closeSidebar(){document.getElementById('sidebar').classList.remove('open');document.getElementById('overlay').classList.remove('show');}
+
+// ── Notifications ──────────────────────────────────────────
+let notifOpen=false;
+async function loadNotifications(){
+  try{
+    const r=await fetch('/api/notifications');const d=await r.json();
+    const b=document.getElementById('notif-badge');
+    b.textContent=d.unread;b.style.display=d.unread>0?'flex':'none';
+    const l=document.getElementById('notif-list');
+    if(!d.notifications||!d.notifications.length){l.innerHTML='<div class="notif-empty">🔔 No notifications yet</div>';return;}
+    l.innerHTML=d.notifications.map(n=>`
+      <div class="notif-item ${n.is_read==0?'unread':''}">
+        <div class="notif-title">${n.title}</div>
+        <div class="notif-msg">${n.message}</div>
+        <div class="notif-time">${n.created_at}</div>
+      </div>`).join('');
+  }catch(e){}
+}
+function toggleNotif(){
+  notifOpen=!notifOpen;
+  document.getElementById('notif-panel').classList.toggle('open',notifOpen);
+  if(notifOpen)loadNotifications();
+}
+async function markAllRead(){
+  await fetch('/api/notifications/mark_read',{method:'POST'});
+  loadNotifications();
+}
+document.addEventListener('click',e=>{
+  if(notifOpen&&!e.target.closest('.notif-wrap')){
+    notifOpen=false;document.getElementById('notif-panel').classList.remove('open');
+  }
+});
+loadNotifications();
+setInterval(loadNotifications,15000);
+
+// ── Face Models ────────────────────────────────────────────
+let modelsLoaded=false;
+async function loadModels(){
+  if(modelsLoaded)return true;
+  try{
+    const URL='https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
+    await Promise.all([
+      faceapi.nets.tinyFaceDetector.loadFromUri(URL),
+      faceapi.nets.faceLandmark68Net.loadFromUri(URL),
+      faceapi.nets.faceRecognitionNet.loadFromUri(URL)
+    ]);
+    modelsLoaded=true;return true;
+  }catch(e){console.error('model load',e);return false;}
+}
+
+// ── Face Setup ─────────────────────────────────────────────
+let faceStream=null;
+async function startFaceCamera(){
+  setSt('face-status','info','⏳ Loading face detection models…');
+  const ok=await loadModels();
+  if(!ok){setSt('face-status','error','❌ Failed to load models. Check internet.');return;}
+  try{
+    faceStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'}});
+    document.getElementById('face-video').srcObject=faceStream;
+    document.getElementById('face-start-btn').style.display='none';
+    document.getElementById('face-capture-btn').style.display='inline-flex';
+    document.getElementById('face-stop-btn').style.display='inline-flex';
+    setSt('face-status','info','📸 Position your face in the oval and click Capture & Register');
+  }catch(e){setSt('face-status','error','❌ Camera access denied.');}
+}
+async function captureFace(){
+  setSt('face-status','info','⏳ Detecting face…');
+  const v=document.getElementById('face-video');
+  const det=await faceapi.detectSingleFace(v,new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
+  if(!det){setSt('face-status','error','❌ No face detected. Move closer to camera.');return;}
+  const r=await fetch('/api/face/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({descriptor:Array.from(det.descriptor)})});
+  const d=await r.json();
+  if(d.success){setSt('face-status','success','🎉 '+d.message);stopFaceCamera();}
+  else setSt('face-status','error','❌ '+d.error);
+}
+function stopFaceCamera(){
+  if(faceStream){faceStream.getTracks().forEach(t=>t.stop());faceStream=null;}
+  document.getElementById('face-video').srcObject=null;
+  document.getElementById('face-start-btn').style.display='inline-flex';
+  document.getElementById('face-capture-btn').style.display='none';
+  document.getElementById('face-stop-btn').style.display='none';
+}
+
+// ── Scanner: 3-step flow ──────────────────────────────────
+let verifyStream=null, qrStream=null, scanInterval=null, pendingQR=null;
+
+function resetScanner(){
+  stopScanner();
+  if(verifyStream){verifyStream.getTracks().forEach(t=>t.stop());verifyStream=null;}
+  document.getElementById('scan-step-1').style.display='block';
+  document.getElementById('scan-step-2').style.display='none';
+  document.getElementById('scan-step-3').style.display='none';
+  setStepUI(1);
+  const v=document.getElementById('verify-start-btn'),u=document.getElementById('verify-do-btn');
+  if(v)v.style.display='inline-flex';if(u)u.style.display='none';
+  const vs=document.getElementById('verify-status');if(vs)vs.style.display='none';
+}
+
+function setStepUI(active){
+  [1,2,3].forEach(n=>{
+    const dot=document.getElementById('s'+n+'-dot');
+    const lbl=document.getElementById('s'+n+'-lbl');
+    if(n===active){
+      dot.style.background='var(--student-clr)';dot.style.color='#000';dot.style.border='none';
+      lbl.style.color='var(--student-clr)';lbl.style.fontWeight='600';
+    } else if(n<active){
+      dot.style.background='var(--green)';dot.style.color='#000';dot.style.border='none';
+      lbl.style.color='var(--green)';lbl.style.fontWeight='400';
+    } else {
+      dot.style.background='var(--bg-card-alt)';dot.style.color='var(--text-muted)';
+      dot.style.border='1px solid var(--border)';
+      lbl.style.color='var(--text-muted)';lbl.style.fontWeight='400';
+    }
+  });
+}
+
+// STEP 1: Face verify
+async function startFaceVerify(){
+  setSt('verify-status','info','⏳ Loading face detection…');
+  const ok=await loadModels();
+  if(!ok){setSt('verify-status','error','❌ Could not load face models.');return;}
+  try{
+    verifyStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'}});
+    document.getElementById('verify-video').srcObject=verifyStream;
+    document.getElementById('verify-start-btn').style.display='none';
+    document.getElementById('verify-do-btn').style.display='inline-flex';
+    setSt('verify-status','info','👁 Look at the camera and click Verify My Face');
+  }catch(e){setSt('verify-status','error','❌ Camera access denied.');}
+}
+async function doVerifyFace(){
+  setSt('verify-status','info','⏳ Verifying face…');
+  const v=document.getElementById('verify-video');
+  const r=await fetch('/api/face/get');const d=await r.json();
+  if(!d.registered){setSt('verify-status','error','❌ No face registered. Go to Face Setup first.');return;}
+  const det=await faceapi.detectSingleFace(v,new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
+  if(!det){setSt('verify-status','error','❌ No face detected. Look directly at camera.');return;}
+  const dist=faceapi.euclideanDistance(new Float32Array(d.descriptor),det.descriptor);
+  if(dist<0.55){
+    setSt('verify-status','success','✅ Face verified!');
+    if(verifyStream){verifyStream.getTracks().forEach(t=>t.stop());verifyStream=null;}
+    setTimeout(()=>{
+      document.getElementById('scan-step-1').style.display='none';
+      document.getElementById('scan-step-2').style.display='block';
+      setStepUI(2);
+    },700);
+  }else{
+    setSt('verify-status','error',`❌ Face did not match (distance: ${dist.toFixed(2)}). Try again or re-register.`);
+  }
+}
+
+// STEP 2: Scan QR
+async function startScanner(){
+  try{
+    qrStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
+    const v=document.getElementById('scanner-video');
+    v.srcObject=qrStream;await v.play();
+    document.getElementById('btn-start').style.display='none';
+    document.getElementById('btn-stop').style.display='inline-flex';
+    setSt('scanner-status','info','🔍 Scanning — point camera at QR code…');
+    scanInterval=setInterval(scanFrame,200);
+  }catch(e){setSt('scanner-status','error','❌ Camera access denied.');}
+}
+function stopScanner(){
+  if(scanInterval){clearInterval(scanInterval);scanInterval=null;}
+  if(qrStream){qrStream.getTracks().forEach(t=>t.stop());qrStream=null;}
+  const v=document.getElementById('scanner-video');if(v)v.srcObject=null;
+  const sb=document.getElementById('btn-start'),eb=document.getElementById('btn-stop');
+  if(sb)sb.style.display='inline-flex';if(eb)eb.style.display='none';
+  const ss=document.getElementById('scanner-status');if(ss)ss.style.display='none';
+}
+function scanFrame(){
+  const v=document.getElementById('scanner-video'),c=document.getElementById('scanner-canvas');
+  if(!v||!v.videoWidth)return;
+  c.width=v.videoWidth;c.height=v.videoHeight;
+  const ctx=c.getContext('2d');ctx.drawImage(v,0,0);
+  const img=ctx.getImageData(0,0,c.width,c.height);
+  const code=jsQR(img.data,img.width,img.height,{inversionAttempts:'dontInvert'});
+  if(code){
+    clearInterval(scanInterval);scanInterval=null;
+    pendingQR=code.data;
+    try{
+      const p=JSON.parse(pendingQR);
+      // Move to Step 3
+      document.getElementById('scan-step-2').style.display='none';
+      document.getElementById('scan-step-3').style.display='block';
+      setStepUI(3);
+      document.getElementById('confirm-subject').textContent=p.subject||'Unknown Subject';
+      stopScanner();
+      // Auto-get location for confirmation
+      prepareLocationForConfirm();
+    }catch(e){
+      setSt('scanner-status','error','❌ Invalid QR format.');
+      scanInterval=setInterval(scanFrame,200);
+    }
+  }
+}
+
+// STEP 3: Location + Confirm
+let studentLat=null, studentLng=null, locationReady=false;
+
+function prepareLocationForConfirm(){
+  // Show getting box, hide result box and confirm button
+  document.getElementById('loc-getting-box').style.display='block';
+  document.getElementById('loc-result-box').style.display='none';
+  document.getElementById('confirm-btn').disabled=true;
+  studentLat=null;studentLng=null;locationReady=false;
+
+  if(!navigator.geolocation){
+    // No geolocation support — skip location, allow confirm
+    document.getElementById('loc-getting-box').style.display='none';
+    showLocResult('info','📍 Location not supported on this device. Attendance will be marked without location check.');
+    locationReady=true;
+    document.getElementById('confirm-btn').disabled=false;
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    pos=>{
+      studentLat=pos.coords.latitude;
+      studentLng=pos.coords.longitude;
+      const acc=Math.round(pos.coords.accuracy);
+      document.getElementById('loc-getting-box').style.display='none';
+      // Show exact coordinates so both student and teacher can verify
+      const lat=studentLat.toFixed(6);
+      const lng=studentLng.toFixed(6);
+      const accMsg = acc<=50 ? `✅ GPS captured (±${acc}m). Ready to mark attendance.`
+                   : acc<=200 ? `⚠️ Low GPS accuracy (±${acc}m). Use mobile device outdoors for better accuracy.`
+                   : `⚠️ Very low accuracy (±${acc}m). GPS may be using Wi-Fi/IP. Results may be imprecise.`;
+      const accType = acc<=50 ? 'success' : 'warn';
+      showLocResult(accType, `${accMsg}\n📍 ${lat}, ${lng}`);
+      locationReady=true;
+      document.getElementById('confirm-btn').disabled=false;
+    },
+    err=>{
+      document.getElementById('loc-getting-box').style.display='none';
+      const msgs={
+        1:'⚠️ Location permission denied. If this QR has a location lock, attendance may be rejected.',
+        2:'⚠️ Location unavailable. If this QR has a location lock, attendance may be rejected.',
+        3:'⚠️ Location timed out. Check that GPS is enabled on your device.'
+      };
+      showLocResult('warn', msgs[err.code]||'⚠️ Could not get location.');
+      locationReady=true;
+      document.getElementById('confirm-btn').disabled=false;
+    },
+    {enableHighAccuracy:true, timeout:15000, maximumAge:0}
+  );
+}
+
+function showLocResult(type, msg){
+  const el=document.getElementById('loc-result-box');
+  const styles={
+    success:{bg:'rgba(16,185,129,.1)',color:'#6ee7b7',border:'rgba(16,185,129,.3)'},
+    info   :{bg:'rgba(6,182,212,.1)', color:'#67e8f9',border:'rgba(6,182,212,.3)'},
+    warn   :{bg:'rgba(245,158,11,.1)',color:'#fcd34d',border:'rgba(245,158,11,.3)'},
+    error  :{bg:'rgba(239,68,68,.1)', color:'#fca5a5',border:'rgba(239,68,68,.3)'}
+  };
+  const s=styles[type]||styles.info;
+  el.style.cssText=`display:block;background:${s.bg};color:${s.color};border:1px solid ${s.border};padding:.65rem .9rem;border-radius:var(--radius-sm);font-size:.8rem;font-weight:500;line-height:1.6;white-space:pre-line;`;
+  el.textContent=msg;
+}
+
+async function confirmAttendance(){
+  document.getElementById('confirm-btn').disabled=true;
+  document.getElementById('confirm-btn').textContent='⏳ Marking…';
+
+  const body={
+    qr_data    : pendingQR,
+    student_lat: studentLat,
+    student_lng: studentLng
+  };
+
+  try{
+    const r=await fetch('/api/scan_attendance',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(body)
+    });
+    const d=await r.json();
+    if(d.success){
+      // Show full success state
+      document.getElementById('scan-step-3').innerHTML=`
+        <div style="text-align:center;padding:2rem 1rem;">
+          <div style="font-size:3.5rem;margin-bottom:1rem;">🎉</div>
+          <div style="font-family:var(--font-head);font-size:1.3rem;font-weight:800;color:var(--student-clr);margin-bottom:.5rem;">${d.message}</div>
+          <div style="color:var(--text-muted);font-size:.875rem;margin-bottom:1.5rem;">Your attendance has been recorded successfully.</div>
+          <button class="btn btn-ghost btn-sm" onclick="resetScanner();showPanel('scanner',null)" style="width:auto;">← Back to Scanner</button>
+        </div>`;
+      loadNotifications();
+    }else{
+      // Show error and allow retry
+      showLocResult('error','❌ '+d.error);
+      document.getElementById('confirm-btn').disabled=false;
+      document.getElementById('confirm-btn').textContent='✓ Retry';
+    }
+  }catch(e){
+    showLocResult('error','❌ Network error. Please check your connection.');
+    document.getElementById('confirm-btn').disabled=false;
+    document.getElementById('confirm-btn').textContent='✓ Retry';
+  }
+}
+
+function cancelConfirm(){
+  pendingQR=null;studentLat=null;studentLng=null;
+  document.getElementById('scan-step-3').style.display='none';
+  document.getElementById('scan-step-2').style.display='block';
+  setStepUI(2);
+  document.getElementById('btn-start').style.display='inline-flex';
+  document.getElementById('btn-stop').style.display='none';
+  const ss=document.getElementById('scanner-status');if(ss)ss.style.display='none';
+}
+
+// ── Timetable ─────────────────────────────────────────────
+async function loadTimetable(){
+  const classId='{{ student.class_id }}';
+  const loading=document.getElementById('tt-loading'),wrap=document.getElementById('tt-wrap'),empty=document.getElementById('tt-empty');
+  loading.style.display='block';wrap.style.display='none';empty.style.display='none';
+  if(!classId||classId==='None'){loading.style.display='none';empty.style.display='block';return;}
+  try{
+    const r=await fetch('/api/timetable/'+classId);const d=await r.json();
+    loading.style.display='none';
+    if(!d.timetable||!d.timetable.length){empty.style.display='block';return;}
+    renderTT(d.timetable);wrap.style.display='block';
+  }catch(e){loading.style.display='none';empty.style.display='block';}
+}
+function renderTT(rows){
+  const days=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const periods=[...new Set(rows.map(r=>r.period_no))].sort((a,b)=>a-b);
+  const lu={};rows.forEach(r=>{lu[r.day_name+'_'+r.period_no]=r;});
+  const dayBg={'Monday':'rgba(6,182,212,.1)','Tuesday':'rgba(16,185,129,.1)','Wednesday':'rgba(245,158,11,.1)','Thursday':'rgba(139,92,246,.1)','Friday':'rgba(239,68,68,.1)','Saturday':'rgba(248,113,113,.08)'};
+  let h='<table class="tt-table"><thead><tr><th class="tt-th">Period</th>';
+  days.forEach(d=>{h+=`<th class="tt-th">${d.slice(0,3)}</th>`;});
+  h+='</tr></thead><tbody>';
+  periods.forEach(p=>{
+    h+=`<tr><td class="tt-td" style="background:var(--bg-base);font-family:var(--font-head);font-weight:700;color:var(--text-muted);">P${p}</td>`;
+    days.forEach(d=>{
+      const e=lu[d+'_'+p];
+      if(e){h+=`<td class="tt-td" style="background:${dayBg[d]||'var(--bg-card-alt)'}">
+        <div class="tt-subject">${e.subject}</div>
+        ${e.teacher_name?`<div class="tt-teacher">${e.teacher_name}</div>`:''}
+        <div class="tt-time">${e.start_time}–${e.end_time}</div>
+      </td>`;}
+      else h+=`<td class="tt-td" style="background:var(--bg-base);"><span style="color:var(--text-muted);opacity:.3;font-size:.68rem;">—</span></td>`;
+    });
+    h+='</tr>';
+  });
+  h+='</tbody></table>';
+  document.getElementById('tt-wrap').innerHTML=h;
+}
+
+// ── ID Card ───────────────────────────────────────────────
+function printCard(){
+  const c=document.getElementById('id-card-el');
+  const w=window.open('','_blank','width=480,height=680');
+  w.document.write(`<!DOCTYPE html><html><head>
+  <link rel="stylesheet" href="/static/css/style.css"/>
+  <style>body{background:#fff;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;padding:1rem;}</style>
+  </head><body>${c.outerHTML}<\x73cript>window.onload=()=>{window.print();window.close();}<\/script></body></html>`);
+  w.document.close();
+}
+function saveCard(){alert('To save as PDF:\n1. Click Print ID Card\n2. In the print dialog choose "Save as PDF"\n3. Click Save');}
+
+// ── History & Percentage ──────────────────────────────────
+async function loadHistory(){
+  const tb=document.getElementById('history-body');
+  tb.innerHTML='<tr><td colspan="6" style="text-align:center"><div class="loading-spinner"></div></td></tr>';
+  try{
+    const r=await fetch('/api/student/attendance');const d=await r.json();
+    if(!d.attendance||!d.attendance.length){
+      tb.innerHTML='<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">📋</div><p>No records yet</p></div></td></tr>';return;
+    }
+    tb.innerHTML=d.attendance.map((r,i)=>`
+      <tr>
+        <td>${i+1}</td><td>${r.date}</td><td>${r.time}</td>
+        <td class="td-name">${r.subject}</td><td>${r.class_name||'—'}</td>
+        <td><span class="badge ${r.status==='Present'?'badge-green':'badge-red'}">${r.status}</span></td>
+      </tr>`).join('');
+  }catch(e){}
+}
+async function loadPct(){
+  try{
+    const r=await fetch('/api/student/attendance');const d=await r.json();
+    const p=d.percentage||0;
+    document.getElementById('pct-value').textContent=p+'%';
+    document.getElementById('pct-present').textContent=d.present;
+    document.getElementById('pct-total').textContent=d.total;
+    document.getElementById('pct-bar').style.width=p+'%';
+    const b=document.getElementById('pct-badge');
+    if(p>=75)     b.innerHTML='<span class="badge badge-green">✓ Good Standing (≥75%)</span>';
+    else if(p>=50)b.innerHTML='<span class="badge badge-amber">⚠ Below Requirement</span>';
+    else          b.innerHTML='<span class="badge badge-red">✗ Critical – Below 50%</span>';
+  }catch(e){}
+}
+
+// ── Utility ───────────────────────────────────────────────
+function setSt(id, type, msg){
+  const el=document.getElementById(id);if(!el)return;
+  const m={
+    error  :['rgba(239,68,68,.12)','#fca5a5','rgba(239,68,68,.3)'],
+    success:['rgba(16,185,129,.12)','#6ee7b7','rgba(16,185,129,.3)'],
+    info   :['rgba(6,182,212,.12)', '#67e8f9','rgba(6,182,212,.3)']
+  };
+  const[bg,color,border]=m[type]||m.info;
+  el.style.cssText=`display:block;background:${bg};color:${color};border:1px solid ${border};border-radius:var(--radius-sm);padding:.7rem 1rem;font-weight:600;font-size:.875rem;margin-top:.75rem;`;
+  el.textContent=msg;
+}
+</script>
+</body>
+</html>
