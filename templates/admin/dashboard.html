@@ -1,0 +1,1000 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Admin Dashboard – QR Attendance Pro</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}"/>
+  <style>
+    :root{--role-color:var(--admin-clr);--role-glow:var(--purple-glow);}
+    .sidebar-logo-icon{background:var(--purple-glow);border:1px solid var(--admin-clr);}
+    .sidebar-avatar{background:var(--purple-glow);color:var(--admin-clr);border:2px solid var(--admin-clr);}
+
+    /* QR Stats table */
+    .qr-stats-table{width:100%;border-collapse:collapse;}
+    .qr-stats-table th{
+      padding:.7rem 1rem;text-align:left;font-size:.72rem;font-weight:600;
+      text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);
+      background:var(--bg-base);border-bottom:1px solid var(--border);
+    }
+    .qr-stats-table td{
+      padding:.75rem 1rem;border-bottom:1px solid rgba(255,255,255,.04);
+      font-size:.875rem;vertical-align:middle;
+    }
+    .qr-stats-table tr:hover td{background:rgba(255,255,255,.02);}
+    .qr-count-big{font-size:1.5rem;font-weight:800;font-family:var(--font-head);color:var(--teacher-clr);}
+    .qr-count-zero{color:var(--text-muted);}
+    .btn-reset{
+      background:rgba(239,68,68,.12);color:#f87171;
+      border:1px solid rgba(239,68,68,.3);
+      padding:.35rem .8rem;border-radius:6px;font-size:.78rem;
+      cursor:pointer;transition:all .2s;white-space:nowrap;
+    }
+    .btn-reset:hover{background:rgba(239,68,68,.25);}
+    .btn-reset:disabled{opacity:.4;cursor:not-allowed;}
+    .btn-deactivate{
+      background:rgba(245,158,11,.12);color:#fcd34d;
+      border:1px solid rgba(245,158,11,.3);
+      padding:.3rem .7rem;border-radius:6px;font-size:.75rem;
+      cursor:pointer;transition:all .2s;white-space:nowrap;
+    }
+    .btn-deactivate:hover{background:rgba(245,158,11,.25);}
+    .btn-deactivate:disabled{opacity:.4;cursor:not-allowed;}
+    .last-gen{font-size:.75rem;color:var(--text-muted);}
+    .dept-badge{
+      display:inline-block;padding:.2rem .6rem;border-radius:20px;font-size:.72rem;
+      background:rgba(99,102,241,.15);color:#a5b4fc;border:1px solid rgba(99,102,241,.3);
+    }
+    .qr-stats-summary,.sessions-summary{
+      display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:1.5rem;
+    }
+    .qr-summary-card{
+      background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);
+      padding:1rem 1.25rem;text-align:center;
+    }
+    .qr-summary-val{font-size:1.75rem;font-weight:800;font-family:var(--font-head);}
+    .qr-summary-lbl{font-size:.78rem;color:var(--text-muted);margin-top:.2rem;}
+    .session-active{color:var(--student-clr);}
+    .session-expired{color:var(--text-muted);}
+    .session-inactive{color:#f87171;}
+    /* Report filters */
+    .report-filters{display:flex;gap:.75rem;flex-wrap:wrap;align-items:flex-end;margin-bottom:1.5rem;}
+    .report-filters .form-group{margin:0;min-width:140px;}
+  </style>
+</head>
+<body>
+<div class="app-shell">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">
+        <div class="sidebar-logo-icon">⚙️</div>
+        <div class="sidebar-logo-name">QR Attendance<small>Admin Portal</small></div>
+      </div>
+    </div>
+    <div class="sidebar-user">
+      <div class="sidebar-avatar">A</div>
+      <div class="sidebar-user-info">
+        <div class="sidebar-user-name">{{ session.name }}</div>
+        <div class="sidebar-user-role">🟣 Administrator</div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-group-label">Overview</div>
+      <button class="nav-item active" onclick="showPanel('overview',this)">
+        <span class="nav-icon">🏠</span>System Dashboard
+      </button>
+      <button class="nav-item" onclick="showPanel('qrstats',this)">
+        <span class="nav-icon">📲</span>QR Code Stats
+      </button>
+      <button class="nav-item" onclick="showPanel('sessions',this)">
+        <span class="nav-icon">🔐</span>QR Sessions
+      </button>
+      <div class="nav-group-label">Reports</div>
+      <button class="nav-item" onclick="showPanel('report',this)">
+        <span class="nav-icon">📊</span>Attendance Report
+      </button>
+      <div class="nav-group-label">Manage</div>
+      <button class="nav-item" onclick="showPanel('students',this)">
+        <span class="nav-icon">🎓</span>Students
+      </button>
+      <button class="nav-item" onclick="showPanel('teachers',this)">
+        <span class="nav-icon">👨‍🏫</span>Teachers
+      </button>
+      <button class="nav-item" onclick="showPanel('classes',this)">
+        <span class="nav-icon">🏫</span>Classes
+      </button>
+      <button class="nav-item" onclick="showPanel('admins',this)">
+        <span class="nav-icon">🛡️</span>Admins
+      </button>
+    </nav>
+    <div class="sidebar-footer">
+      <a href="/logout" class="logout-btn"><span>🚪</span>Logout</a>
+    </div>
+  </aside>
+  <div class="sidebar-overlay" id="overlay" onclick="closeSidebar()"></div>
+
+  <!-- MAIN -->
+  <main class="main-content">
+    <div class="topbar">
+      <div>
+        <div class="topbar-title" id="panel-title">System Dashboard</div>
+        <div class="topbar-subtitle">Administrative control panel</div>
+      </div>
+      <button class="hamburger" onclick="openSidebar()">☰</button>
+    </div>
+
+    <div class="content-area">
+
+      <!-- ── OVERVIEW ─────────────────────────────────────── -->
+      <div id="panel-overview" class="panel active">
+        <div class="stat-grid">
+          <div class="stat-card"><div class="stat-value" id="stat-students">—</div><div class="stat-label">🎓 Total Students</div></div>
+          <div class="stat-card"><div class="stat-value" id="stat-teachers">—</div><div class="stat-label">👨‍🏫 Total Teachers</div></div>
+          <div class="stat-card"><div class="stat-value" id="stat-classes">—</div><div class="stat-label">🏫 Total Classes</div></div>
+          <div class="stat-card"><div class="stat-value" id="stat-attendance">—</div><div class="stat-label">✅ Attendance Records</div></div>
+          <div class="stat-card"><div class="stat-value" id="stat-sessions">—</div><div class="stat-label">📲 QR Sessions</div></div>
+        </div>
+        <div class="card">
+          <div class="card-title"><span class="title-icon">🚀</span>Quick Actions</div>
+          <div style="display:flex;gap:.75rem;flex-wrap:wrap;">
+            <button class="btn btn-ghost btn-sm" onclick="showPanel('students',null);setTimeout(()=>document.getElementById('add-student-modal').classList.add('show'),100)">+ Add Student</button>
+            <button class="btn btn-ghost btn-sm" onclick="showPanel('teachers',null);setTimeout(()=>document.getElementById('add-teacher-modal').classList.add('show'),100)">+ Add Teacher</button>
+            <button class="btn btn-ghost btn-sm" onclick="showPanel('classes',null);setTimeout(()=>document.getElementById('add-class-modal').classList.add('show'),100)">+ Create Class</button>
+            <button class="btn btn-ghost btn-sm" onclick="showPanel('qrstats',null)">📲 QR Stats</button>
+            <button class="btn btn-ghost btn-sm" onclick="showPanel('sessions',null)">🔐 QR Sessions</button>
+            <button class="btn btn-ghost btn-sm" onclick="showPanel('report',null)">📊 Attendance Report</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── QR CODE STATS ──────────────────────────────────── -->
+      <div id="panel-qrstats" class="panel">
+        <div class="qr-stats-summary">
+          <div class="qr-summary-card">
+            <div class="qr-summary-val" id="qs-total" style="color:var(--teacher-clr);">—</div>
+            <div class="qr-summary-lbl">📲 Total QR Sessions (All Time)</div>
+          </div>
+          <div class="qr-summary-card">
+            <div class="qr-summary-val" id="qs-active-classes" style="color:var(--student-clr);">—</div>
+            <div class="qr-summary-lbl">🏫 Classes with QR Activity</div>
+          </div>
+          <div class="qr-summary-card">
+            <div class="qr-summary-val" id="qs-top-class" style="color:var(--admin-clr);font-size:1.1rem;">—</div>
+            <div class="qr-summary-lbl">🏆 Most Active Class</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title" style="justify-content:space-between;align-items:center;">
+            <span><span class="title-icon">📲</span>QR Generation Count — Per Class</span>
+            <button class="btn btn-ghost btn-sm" style="width:auto;" onclick="loadQRStats()">🔄 Refresh</button>
+          </div>
+          <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:1.25rem;line-height:1.5;">
+            Shows how many QR codes each class has generated since the last reset.
+            <strong style="color:var(--text-soft);">Reset Count</strong> sets a class back to 0 (all-time total still tracked).
+          </p>
+          <div id="qr-stats-loading" style="text-align:center;padding:2rem;"><div class="loading-spinner"></div></div>
+          <div class="table-wrap" id="qr-stats-wrap" style="display:none;">
+            <table class="qr-stats-table">
+              <thead>
+                <tr>
+                  <th>#</th><th>Class</th><th>Department</th><th>Teacher</th>
+                  <th style="text-align:center;">Since Reset</th>
+                  <th style="text-align:center;">All-Time</th>
+                  <th>Last Generated</th>
+                  <th style="text-align:center;">Action</th>
+                </tr>
+              </thead>
+              <tbody id="qr-stats-body"></tbody>
+            </table>
+          </div>
+          <div id="qr-stats-empty" class="empty-state" style="display:none;">
+            <div class="empty-icon">📲</div><p>No QR sessions generated yet.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── QR SESSIONS ────────────────────────────────────── -->
+      <div id="panel-sessions" class="panel">
+        <div class="sessions-summary">
+          <div class="qr-summary-card">
+            <div class="qr-summary-val" id="sess-total" style="color:var(--teacher-clr);">—</div>
+            <div class="qr-summary-lbl">📋 Total Sessions Loaded</div>
+          </div>
+          <div class="qr-summary-card">
+            <div class="qr-summary-val" id="sess-active" style="color:var(--student-clr);">—</div>
+            <div class="qr-summary-lbl">✅ Active Sessions</div>
+          </div>
+          <div class="qr-summary-card">
+            <div class="qr-summary-val" id="sess-scans" style="color:var(--admin-clr);">—</div>
+            <div class="qr-summary-lbl">📱 Total Scans</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title" style="justify-content:space-between;align-items:center;">
+            <span><span class="title-icon">🔐</span>QR Sessions Log</span>
+            <div style="display:flex;gap:.5rem;align-items:center;">
+              <select id="sess-class-filter" style="font-size:.82rem;padding:.4rem .6rem;background:var(--bg-base);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);">
+                <option value="">All Classes</option>
+              </select>
+              <button class="btn btn-ghost btn-sm" style="width:auto;" onclick="loadSessions()">🔄 Refresh</button>
+            </div>
+          </div>
+          <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:1.25rem;line-height:1.5;">
+            View all QR sessions. Deactivate individual sessions to prevent further scanning. 
+            <strong style="color:#f87171;">Deactivate</strong> makes the QR immediately invalid.
+          </p>
+          <div id="sess-loading" style="text-align:center;padding:2rem;"><div class="loading-spinner"></div></div>
+          <div class="table-wrap" id="sess-wrap" style="display:none;">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th><th>Class</th><th>Subject</th><th>Teacher</th>
+                  <th style="text-align:center;">Scans</th>
+                  <th>Created</th><th>Expires</th>
+                  <th style="text-align:center;">📍 Lock</th>
+                  <th style="text-align:center;">Status</th>
+                  <th style="text-align:center;">Deactivate</th>
+                  <th style="text-align:center;">Delete</th>
+                </tr>
+              </thead>
+              <tbody id="sess-body"></tbody>
+            </table>
+          </div>
+          <div id="sess-empty" class="empty-state" style="display:none;">
+            <div class="empty-icon">🔐</div><p>No QR sessions found.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── ATTENDANCE REPORT ──────────────────────────────── -->
+      <div id="panel-report" class="panel">
+        <div class="card">
+          <div class="card-title" style="justify-content:space-between;align-items:center;">
+            <span><span class="title-icon">📊</span>Attendance Report</span>
+            <button class="btn btn-ghost btn-sm" style="width:auto;" onclick="exportAdminCSV()">⬇ Export CSV</button>
+          </div>
+          <div class="report-filters">
+            <div class="form-group"><label>From Date</label><input type="date" id="rpt-from"/></div>
+            <div class="form-group"><label>To Date</label><input type="date" id="rpt-to"/></div>
+            <div class="form-group" style="min-width:160px;">
+              <label>Class</label>
+              <select id="rpt-class">
+                <option value="">All Classes</option>
+              </select>
+            </div>
+            <div class="form-group" style="min-width:180px;">
+              <label>Search Student</label>
+              <input type="text" id="rpt-search" placeholder="Name or reg. no."/>
+            </div>
+            <button class="btn btn-primary btn-sm" style="width:auto;height:fit-content;" onclick="loadAdminReport()">🔍 Load Report</button>
+          </div>
+          <div id="rpt-summary" style="margin-bottom:1rem;display:none;">
+            <span id="rpt-count-badge" class="badge badge-blue"></span>
+          </div>
+          <div id="rpt-loading" style="text-align:center;padding:2rem;display:none;"><div class="loading-spinner"></div></div>
+          <div class="table-wrap" id="rpt-wrap" style="display:none;">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th><th>Student</th><th>Reg. No.</th><th>Class</th><th>Dept.</th>
+                  <th>Subject</th><th>Status</th><th>Date</th><th>Time</th><th>Location</th>
+                </tr>
+              </thead>
+              <tbody id="rpt-body"></tbody>
+            </table>
+          </div>
+          <div id="rpt-empty" class="empty-state" style="display:none;">
+            <div class="empty-icon">📊</div><p>No records found. Adjust filters and try again.</p>
+          </div>
+          <div id="rpt-initial" style="text-align:center;padding:3rem;color:var(--text-muted);">
+            <div style="font-size:3rem;opacity:.3;margin-bottom:.75rem;">📊</div>
+            <p style="font-size:.9rem;">Select date range and click Load Report</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── STUDENTS ──────────────────────────────────────── -->
+      <div id="panel-students" class="panel">
+        <div class="card">
+          <div class="card-title" style="justify-content:space-between;">
+            <span><span class="title-icon">🎓</span>Manage Students</span>
+            <button class="btn btn-primary btn-sm" style="width:auto;"
+              onclick="document.getElementById('add-student-modal').classList.add('show')">+ Add Student</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>#</th><th>Name</th><th>Reg. No.</th><th>Email</th><th>Class</th><th>Department</th><th>Actions</th></tr></thead>
+              <tbody id="admin-students-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── TEACHERS ──────────────────────────────────────── -->
+      <div id="panel-teachers" class="panel">
+        <div class="card">
+          <div class="card-title" style="justify-content:space-between;">
+            <span><span class="title-icon">👨‍🏫</span>Manage Teachers</span>
+            <button class="btn btn-primary btn-sm" style="width:auto;"
+              onclick="document.getElementById('add-teacher-modal').classList.add('show')">+ Add Teacher</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>#</th><th>Name</th><th>Teacher ID</th><th>Email</th><th>Department</th><th>Class</th><th>Actions</th></tr></thead>
+              <tbody id="admin-teachers-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── CLASSES ───────────────────────────────────────── -->
+      <div id="panel-classes" class="panel">
+        <div class="card">
+          <div class="card-title" style="justify-content:space-between;">
+            <span><span class="title-icon">🏫</span>Manage Classes</span>
+            <button class="btn btn-primary btn-sm" style="width:auto;"
+              onclick="document.getElementById('add-class-modal').classList.add('show')">+ Create Class</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>#</th><th>Class Name</th><th>Department</th><th>Assigned Teacher</th><th>Actions</th></tr></thead>
+              <tbody id="admin-classes-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── ADMINS ─────────────────────────────────────── -->
+      <div id="panel-admins" class="panel">
+        <div class="card">
+          <div class="card-title" style="justify-content:space-between;">
+            <span><span class="title-icon">🛡️</span>Manage Admins</span>
+            <button class="btn btn-primary btn-sm" style="width:auto;"
+              onclick="document.getElementById('add-admin-modal').classList.add('show')">+ Add Admin</button>
+          </div>
+          <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:1.25rem;line-height:1.5;">
+            Admins have full access to the system. You cannot delete your own account or the last remaining admin.
+          </p>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>#</th><th>Name</th><th>Email</th><th>Created</th><th style="text-align:center;">Action</th></tr></thead>
+              <tbody id="admin-admins-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- end content-area -->
+  </main>
+</div>
+
+<!-- ════════════ MODALS ════════════════════════════════════ -->
+<!-- Add Student -->
+<div class="modal-overlay" id="add-student-modal">
+  <div class="modal">
+    <div class="modal-header"><span class="modal-title">Add Student</span><button class="modal-close" onclick="closeModal('add-student-modal')">✕</button></div>
+    <div class="form-row">
+      <div class="form-group"><label>Full Name</label><input type="text" id="as-name"/></div>
+      <div class="form-group"><label>Register Number</label><input type="text" id="as-reg"/></div>
+    </div>
+    <div class="form-group"><label>Email</label><input type="email" id="as-email"/></div>
+    <div class="form-row">
+      <div class="form-group"><label>Department</label><input type="text" id="as-dept"/></div>
+      <div class="form-group"><label>Class</label><select id="as-class"></select></div>
+    </div>
+    <div class="form-group"><label>Password</label><input type="password" id="as-pass" placeholder="Minimum 6 chars"/></div>
+    <div id="as-error" class="alert alert-error" style="display:none;"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('add-student-modal')">Cancel</button>
+      <button class="btn btn-primary btn-sm" style="width:auto;" onclick="addStudent()">Add Student</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Student -->
+<div class="modal-overlay" id="edit-student-modal">
+  <div class="modal">
+    <div class="modal-header"><span class="modal-title">Edit Student</span><button class="modal-close" onclick="closeModal('edit-student-modal')">✕</button></div>
+    <input type="hidden" id="es-id"/>
+    <div class="form-row">
+      <div class="form-group"><label>Full Name</label><input type="text" id="es-name"/></div>
+      <div class="form-group"><label>Register Number</label><input type="text" id="es-reg"/></div>
+    </div>
+    <div class="form-group"><label>Email</label><input type="email" id="es-email"/></div>
+    <div class="form-row">
+      <div class="form-group"><label>Department</label><input type="text" id="es-dept"/></div>
+      <div class="form-group"><label>Class</label><select id="es-class"></select></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('edit-student-modal')">Cancel</button>
+      <button class="btn btn-primary btn-sm" style="width:auto;" onclick="updateStudent()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Teacher -->
+<div class="modal-overlay" id="add-teacher-modal">
+  <div class="modal">
+    <div class="modal-header"><span class="modal-title">Add Teacher</span><button class="modal-close" onclick="closeModal('add-teacher-modal')">✕</button></div>
+    <div class="form-row">
+      <div class="form-group"><label>Full Name</label><input type="text" id="at-name"/></div>
+      <div class="form-group"><label>Teacher ID</label><input type="text" id="at-tid"/></div>
+    </div>
+    <div class="form-group"><label>Email</label><input type="email" id="at-email"/></div>
+    <div class="form-row">
+      <div class="form-group"><label>Department</label><input type="text" id="at-dept"/></div>
+      <div class="form-group"><label>Assign Class</label><select id="at-class"></select></div>
+    </div>
+    <div class="form-group"><label>Password</label><input type="password" id="at-pass"/></div>
+    <div id="at-error" class="alert alert-error" style="display:none;"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('add-teacher-modal')">Cancel</button>
+      <button class="btn btn-primary btn-sm" style="width:auto;" onclick="addTeacher()">Add Teacher</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Teacher -->
+<div class="modal-overlay" id="edit-teacher-modal">
+  <div class="modal">
+    <div class="modal-header"><span class="modal-title">Edit Teacher</span><button class="modal-close" onclick="closeModal('edit-teacher-modal')">✕</button></div>
+    <input type="hidden" id="et-id"/>
+    <div class="form-row">
+      <div class="form-group"><label>Full Name</label><input type="text" id="et-name"/></div>
+      <div class="form-group"><label>Teacher ID</label><input type="text" id="et-tid"/></div>
+    </div>
+    <div class="form-group"><label>Email</label><input type="email" id="et-email"/></div>
+    <div class="form-row">
+      <div class="form-group"><label>Department</label><input type="text" id="et-dept"/></div>
+      <div class="form-group"><label>Assign Class</label><select id="et-class"></select></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('edit-teacher-modal')">Cancel</button>
+      <button class="btn btn-primary btn-sm" style="width:auto;" onclick="updateTeacher()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Class -->
+<div class="modal-overlay" id="add-class-modal">
+  <div class="modal">
+    <div class="modal-header"><span class="modal-title">Create Class</span><button class="modal-close" onclick="closeModal('add-class-modal')">✕</button></div>
+    <div class="form-group"><label>Class Name</label><input type="text" id="ac-name" placeholder="e.g. CS-A 2025"/></div>
+    <div class="form-group"><label>Department</label><input type="text" id="ac-dept" placeholder="e.g. Computer Science"/></div>
+    <div class="form-group"><label>Assign Teacher</label><select id="ac-teacher"></select></div>
+    <div id="ac-error" class="alert alert-error" style="display:none;"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('add-class-modal')">Cancel</button>
+      <button class="btn btn-primary btn-sm" style="width:auto;" onclick="addClass()">Create Class</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Class -->
+<div class="modal-overlay" id="edit-class-modal">
+  <div class="modal">
+    <div class="modal-header"><span class="modal-title">Edit Class</span><button class="modal-close" onclick="closeModal('edit-class-modal')">✕</button></div>
+    <input type="hidden" id="ec-id"/>
+    <div class="form-group"><label>Class Name</label><input type="text" id="ec-name"/></div>
+    <div class="form-group"><label>Department</label><input type="text" id="ec-dept"/></div>
+    <div class="form-group"><label>Assign Teacher</label><select id="ec-teacher"></select></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('edit-class-modal')">Cancel</button>
+      <button class="btn btn-primary btn-sm" style="width:auto;" onclick="updateClass()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Admin -->
+<div class="modal-overlay" id="add-admin-modal">
+  <div class="modal">
+    <div class="modal-header"><span class="modal-title">Add Admin</span><button class="modal-close" onclick="closeModal('add-admin-modal')">✕</button></div>
+    <div class="form-group"><label>Full Name</label><input type="text" id="aa-name" placeholder="e.g. Dr. Admin Kumar"/></div>
+    <div class="form-group"><label>Email</label><input type="email" id="aa-email" placeholder="admin@school.com"/></div>
+    <div class="form-group"><label>Password</label><input type="password" id="aa-pass" placeholder="Minimum 6 characters"/></div>
+    <div id="aa-error" class="alert alert-error" style="display:none;"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('add-admin-modal')">Cancel</button>
+      <button class="btn btn-primary btn-sm" style="width:auto;" onclick="addAdmin()">Add Admin</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Globals ─────────────────────────────────────────────
+let allClasses  = [];
+let allTeachers = [];
+let adminReportData = [];
+
+// ── Panel nav ────────────────────────────────────────────
+const titles={
+  overview :'System Dashboard',
+  qrstats  :'QR Code Stats',
+  sessions :'QR Sessions',
+  report   :'Attendance Report',
+  students :'Manage Students',
+  teachers :'Manage Teachers',
+  classes  :'Manage Classes',
+  admins   :'Manage Admins'
+};
+
+function showPanel(name,el){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(i=>i.classList.remove('active'));
+  document.getElementById('panel-'+name).classList.add('active');
+  if(el) el.classList.add('active');
+  else document.querySelectorAll('.nav-item').forEach(i=>{
+    if(i.getAttribute('onclick')&&i.getAttribute('onclick').includes("'"+name+"'"))
+      i.classList.add('active');
+  });
+  document.getElementById('panel-title').textContent=titles[name]||name;
+  if(name==='overview')  loadStats();
+  if(name==='qrstats')   loadQRStats();
+  if(name==='sessions')  loadSessions();
+  if(name==='report')    initReport();
+  if(name==='students')  loadStudents();
+  if(name==='teachers')  loadTeachers();
+  if(name==='classes')   loadClasses();
+  if(name==='admins')    loadAdmins();
+  closeSidebar();
+}
+
+function openSidebar(){document.getElementById('sidebar').classList.add('open');document.getElementById('overlay').classList.add('show');}
+function closeSidebar(){document.getElementById('sidebar').classList.remove('open');document.getElementById('overlay').classList.remove('show');}
+function closeModal(id){document.getElementById(id).classList.remove('show');}
+
+// ── Stats ────────────────────────────────────────────────
+async function loadStats(){
+  try{
+    const r=await fetch('/api/admin/stats');
+    const d=await r.json();
+    document.getElementById('stat-students').textContent   = d.students;
+    document.getElementById('stat-teachers').textContent   = d.teachers;
+    document.getElementById('stat-classes').textContent    = d.classes;
+    document.getElementById('stat-attendance').textContent = d.attendance;
+    document.getElementById('stat-sessions').textContent   = d.sessions;
+  }catch(e){}
+}
+
+// ── QR STATS ─────────────────────────────────────────────
+async function loadQRStats(){
+  const loading=document.getElementById('qr-stats-loading');
+  const wrap   =document.getElementById('qr-stats-wrap');
+  const empty  =document.getElementById('qr-stats-empty');
+  loading.style.display='block'; wrap.style.display='none'; empty.style.display='none';
+  try{
+    const r=await fetch('/api/admin/qr_stats'); const d=await r.json();
+    loading.style.display='none';
+    if(!d.stats||!d.stats.length){
+      empty.style.display='block';
+      ['qs-total','qs-active-classes'].forEach(id=>document.getElementById(id).textContent='0');
+      document.getElementById('qs-top-class').textContent='None';
+      return;
+    }
+    const totalAll =d.stats.reduce((s,x)=>s+Number(x.total_sessions),0);
+    const activeCount=d.stats.filter(x=>Number(x.total_sessions)>0).length;
+    const topClass =d.stats.reduce((a,b)=>Number(a.current_count)>Number(b.current_count)?a:b);
+    document.getElementById('qs-total').textContent          = totalAll;
+    document.getElementById('qs-active-classes').textContent = activeCount;
+    document.getElementById('qs-top-class').textContent      = topClass.current_count>0?topClass.class_name:'None';
+    document.getElementById('qr-stats-body').innerHTML = d.stats.map((s,i)=>{
+      const cnt=Number(s.current_count);const total=Number(s.total_sessions);
+      const lastGen=s.last_generated
+        ?new Date(s.last_generated.replace(' ','T')).toLocaleString()
+        :'<span style="color:var(--text-muted);">Never</span>';
+      return `<tr>
+        <td style="color:var(--text-muted);">${i+1}</td>
+        <td style="font-weight:600;">${s.class_name}</td>
+        <td><span class="dept-badge">${s.department}</span></td>
+        <td style="font-size:.82rem;color:var(--text-soft);">${s.teacher_name}</td>
+        <td style="text-align:center;"><span class="qr-count-big ${cnt===0?'qr-count-zero':''}">${cnt}</span></td>
+        <td style="text-align:center;color:var(--text-muted);">${total}</td>
+        <td class="last-gen">${lastGen}</td>
+        <td style="text-align:center;">
+          <button class="btn-reset" id="reset-btn-${s.id}"
+            onclick="resetQRCount(${s.id},'${esc(s.class_name)}',this)"
+            ${cnt===0?'disabled':''}>🔄 Reset Count</button>
+        </td>
+      </tr>`;
+    }).join('');
+    wrap.style.display='block';
+  }catch(e){loading.style.display='none';empty.style.display='block';}
+}
+
+async function resetQRCount(classId,className,btn){
+  if(!confirm(`Reset QR count to 0 for "${className}"?\n\nThis only resets the displayed counter. All-time total is still tracked.`))return;
+  btn.disabled=true; btn.textContent='Resetting…';
+  try{
+    const r=await fetch(`/api/admin/qr_reset/${classId}`,{method:'POST'});
+    const d=await r.json();
+    if(d.success) await loadQRStats();
+    else{alert('Reset failed: '+(d.error||'Unknown error'));btn.disabled=false;btn.textContent='🔄 Reset Count';}
+  }catch(e){alert('Network error.');btn.disabled=false;btn.textContent='🔄 Reset Count';}
+}
+
+// ── QR SESSIONS ──────────────────────────────────────────
+async function loadSessions(){
+  const loading=document.getElementById('sess-loading');
+  const wrap   =document.getElementById('sess-wrap');
+  const empty  =document.getElementById('sess-empty');
+  loading.style.display='block'; wrap.style.display='none'; empty.style.display='none';
+  const cid=document.getElementById('sess-class-filter').value;
+  try{
+    const url='/api/admin/qr_sessions'+(cid?'?class_id='+cid:'');
+    const r=await fetch(url); const d=await r.json();
+    loading.style.display='none';
+    if(!d.sessions||!d.sessions.length){empty.style.display='block';
+      document.getElementById('sess-total').textContent='0';
+      document.getElementById('sess-active').textContent='0';
+      document.getElementById('sess-scans').textContent='0';
+      return;
+    }
+    document.getElementById('sess-total').textContent  = d.sessions.length;
+    document.getElementById('sess-active').textContent = d.sessions.filter(s=>s.is_active==1&&!s.is_expired).length;
+    document.getElementById('sess-scans').textContent  = d.sessions.reduce((s,x)=>s+Number(x.scan_count),0);
+    document.getElementById('sess-body').innerHTML = d.sessions.map((s,i)=>{
+      const isExpired = s.is_expired==1 || s.is_expired===true;
+      const isDeactivated = s.is_active==0;
+      // canDeactivate: only if still marked active (even if naturally expired — force-deactivate cleans it up)
+      const canDeactivate = s.is_active==1;
+      const statusBadge = isDeactivated
+        ?'<span class="badge badge-red">Deactivated</span>'
+        :isExpired
+          ?'<span class="badge" style="background:rgba(107,114,128,.15);color:var(--text-muted);border:1px solid var(--border);">Expired</span>'
+          :'<span class="badge badge-green">Active</span>';
+      // Use /@lat,lng,17z for exact pin drop on Google Maps
+      const locBadge = s.teacher_lat
+        ?`<a href="https://www.google.com/maps/@${s.teacher_lat},${s.teacher_lng},17z" target="_blank" style="color:var(--student-clr);font-size:.75rem;">📍 ${s.location_radius}m</a>`
+        :'<span style="color:var(--text-muted);font-size:.75rem;">—</span>';
+      return `<tr>
+        <td style="color:var(--text-muted);">${i+1}</td>
+        <td style="font-weight:600;font-size:.85rem;">${s.class_name||'—'}</td>
+        <td style="font-size:.85rem;">${s.subject}</td>
+        <td style="font-size:.82rem;color:var(--text-soft);">${s.teacher_name||'—'}</td>
+        <td style="text-align:center;"><span class="badge badge-blue">${s.scan_count}</span></td>
+        <td class="last-gen">${s.created_at}</td>
+        <td class="last-gen">${s.expires_at}</td>
+        <td style="text-align:center;">${locBadge}</td>
+        <td style="text-align:center;">${statusBadge}</td>
+        <td style="text-align:center;">
+          ${canDeactivate
+            ? `<button class="btn-deactivate" onclick="deactivateSession(${s.id},this)">⛔ Deactivate</button>`
+            : '<span style="color:var(--text-muted);font-size:.75rem;">—</span>'}
+        </td>
+        <td style="text-align:center;">
+          <button class="btn btn-danger btn-sm" style="font-size:.75rem;padding:.3rem .65rem;"
+            onclick="deleteSession(${s.id},this)">🗑️ Delete</button>
+        </td>
+      </tr>`;
+    }).join('');
+    wrap.style.display='block';
+  }catch(e){loading.style.display='none';empty.style.display='block';}
+}
+
+async function deactivateSession(id,btn){
+  if(!confirm('Deactivate this QR session? Students will no longer be able to scan it.'))return;
+  btn.disabled=true; btn.textContent='…';
+  try{
+    const r=await fetch(`/api/admin/session_deactivate/${id}`,{method:'POST'});
+    const d=await r.json();
+    if(d.success) await loadSessions();
+    else{alert('Failed: '+(d.error||'Unknown error'));btn.disabled=false;btn.textContent='⛔ Deactivate';}
+  }catch(e){alert('Network error.');btn.disabled=false;btn.textContent='⛔ Deactivate';}
+}
+
+async function deleteSession(id,btn){
+  if(!confirm('Permanently delete this QR session?\n\nThis will also delete all attendance records linked to it. This cannot be undone.'))return;
+  btn.disabled=true; btn.textContent='…';
+  try{
+    const r=await fetch(`/api/admin/session_delete/${id}`,{method:'DELETE'});
+    const d=await r.json();
+    if(d.success){ await loadSessions(); loadStats(); }
+    else{alert('Delete failed: '+(d.error||'Unknown error'));btn.disabled=false;btn.textContent='🗑️ Delete';}
+  }catch(e){alert('Network error.');btn.disabled=false;btn.textContent='🗑️ Delete';}
+}
+
+// ── ATTENDANCE REPORT ────────────────────────────────────
+function initReport(){
+  const today=new Date().toISOString().split('T')[0];
+  if(!document.getElementById('rpt-from').value) document.getElementById('rpt-from').value=today;
+  if(!document.getElementById('rpt-to').value)   document.getElementById('rpt-to').value=today;
+  // Populate class filter
+  buildClassSelect(document.getElementById('rpt-class'));
+}
+
+async function loadAdminReport(){
+  const from  =document.getElementById('rpt-from').value;
+  const to    =document.getElementById('rpt-to').value;
+  const cid   =document.getElementById('rpt-class').value;
+  const search=document.getElementById('rpt-search').value;
+  if(!from||!to){alert('Please select a date range.');return;}
+  const loading=document.getElementById('rpt-loading');
+  const wrap   =document.getElementById('rpt-wrap');
+  const empty  =document.getElementById('rpt-empty');
+  const initial=document.getElementById('rpt-initial');
+  const summary=document.getElementById('rpt-summary');
+  loading.style.display='block'; wrap.style.display='none';
+  empty.style.display='none'; initial.style.display='none'; summary.style.display='none';
+  try{
+    const url=`/api/admin/attendance_report?date_from=${from}&date_to=${to}&class_id=${cid}&search=${encodeURIComponent(search)}`;
+    const r=await fetch(url); const d=await r.json();
+    loading.style.display='none';
+    adminReportData=d.report||[];
+    if(!adminReportData.length){empty.style.display='block';return;}
+    document.getElementById('rpt-count-badge').textContent=`${d.count} record${d.count!==1?'s':''}`;
+    summary.style.display='block';
+    document.getElementById('rpt-body').innerHTML=adminReportData.map((row,i)=>{
+      let locCell;
+      if(row.scan_lat&&row.scan_lng){
+        const lat=parseFloat(row.scan_lat).toFixed(6);
+        const lng=parseFloat(row.scan_lng).toFixed(6);
+        locCell=`<a href="https://www.google.com/maps/@${row.scan_lat},${row.scan_lng},17z" target="_blank"
+          style="color:var(--student-clr);font-size:.78rem;white-space:nowrap;">📍 ${lat},${lng}</a>`;
+      }else{
+        locCell='<span style="color:var(--text-muted);font-size:.75rem;">— No GPS</span>';
+      }
+      return `<tr>
+        <td style="color:var(--text-muted);">${i+1}</td>
+        <td class="td-name">${row.student_name}</td>
+        <td>${row.register_number}</td>
+        <td>${row.class_name||'—'}</td>
+        <td style="font-size:.8rem;">${row.department||'—'}</td>
+        <td>${row.subject}</td>
+        <td><span class="badge badge-green">${row.status}</span></td>
+        <td style="font-size:.82rem;">${row.date}</td>
+        <td style="font-size:.82rem;">${row.time}</td>
+        <td>${locCell}</td>
+      </tr>`;
+    }).join('');
+    wrap.style.display='block';
+  }catch(e){loading.style.display='none';empty.style.display='block';}
+}
+
+function exportAdminCSV(){
+  if(!adminReportData.length){alert('Load a report first.');return;}
+  const cols=['Student','Reg No','Class','Department','Subject','Status','Date','Time','Latitude','Longitude'];
+  const rows=adminReportData.map(r=>[
+    r.student_name,r.register_number,r.class_name||'',r.department||'',
+    r.subject,r.status,r.date,r.time,r.scan_lat||'',r.scan_lng||''
+  ]);
+  const csv=[cols,...rows].map(r=>r.map(c=>`"${c}"`).join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download=`admin_attendance_${document.getElementById('rpt-from').value}_to_${document.getElementById('rpt-to').value}.csv`;
+  a.click();
+}
+
+// ── Selects helper ────────────────────────────────────────
+async function preloadSelects(){
+  try{const r=await fetch('/api/admin/classes');allClasses=(await r.json()).classes||[];}catch(e){}
+  try{const r=await fetch('/api/teachers_list');allTeachers=(await r.json()).teachers||[];}catch(e){}
+  // Populate sessions class filter
+  const sf=document.getElementById('sess-class-filter');
+  sf.innerHTML='<option value="">All Classes</option>'+allClasses.map(c=>`<option value="${c.id}">${c.class_name}</option>`).join('');
+}
+function buildClassSelect(el,selectedId){
+  el.innerHTML='<option value="">No class</option>'+
+    allClasses.map(c=>`<option value="${c.id}" ${c.id==selectedId?'selected':''}>${c.class_name}</option>`).join('');
+}
+function buildTeacherSelect(el,selectedId){
+  el.innerHTML='<option value="">No teacher</option>'+
+    allTeachers.map(t=>`<option value="${t.id}" ${t.id==selectedId?'selected':''}>${t.name} (${t.teacher_id})</option>`).join('');
+}
+
+// ── STUDENTS ──────────────────────────────────────────────
+async function loadStudents(){
+  await preloadSelects();
+  buildClassSelect(document.getElementById('as-class'));
+  buildClassSelect(document.getElementById('es-class'));
+  const tbody=document.getElementById('admin-students-body');
+  tbody.innerHTML='<tr><td colspan="7" style="text-align:center"><div class="loading-spinner"></div></td></tr>';
+  try{
+    const r=await fetch('/api/admin/students');const d=await r.json();
+    if(!d.students.length){
+      tbody.innerHTML='<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">🎓</div><p>No students yet</p></div></td></tr>';
+      return;
+    }
+    tbody.innerHTML=d.students.map((s,i)=>`
+      <tr>
+        <td>${i+1}</td><td class="td-name">${s.name}</td><td>${s.register_number}</td>
+        <td>${s.email}</td><td>${s.class_name||'—'}</td><td>${s.department||'—'}</td>
+        <td><div class="action-btns">
+          <button class="btn btn-ghost btn-sm" onclick="openEditStudent(${s.id},'${esc(s.name)}','${esc(s.register_number)}','${esc(s.email)}','${esc(s.department||'')}',${s.class_id||0})">✏️</button>
+          <button class="btn btn-danger btn-sm" onclick="delStudent(${s.id},this)">🗑️</button>
+        </div></td>
+      </tr>`).join('');
+  }catch(e){}
+}
+function openEditStudent(id,name,reg,email,dept,cid){
+  document.getElementById('es-id').value=id;
+  document.getElementById('es-name').value=name;
+  document.getElementById('es-reg').value=reg;
+  document.getElementById('es-email').value=email;
+  document.getElementById('es-dept').value=dept;
+  buildClassSelect(document.getElementById('es-class'),cid);
+  document.getElementById('edit-student-modal').classList.add('show');
+}
+async function addStudent(){
+  const errDiv=document.getElementById('as-error'); errDiv.style.display='none';
+  const body={name:document.getElementById('as-name').value,register_number:document.getElementById('as-reg').value,email:document.getElementById('as-email').value,department:document.getElementById('as-dept').value,class_id:document.getElementById('as-class').value||null,password:document.getElementById('as-pass').value};
+  const r=await fetch('/api/admin/student',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const d=await r.json();
+  if(d.success){closeModal('add-student-modal');loadStudents();}
+  else{errDiv.textContent=d.error;errDiv.style.display='block';}
+}
+async function updateStudent(){
+  const id=document.getElementById('es-id').value;
+  const body={name:document.getElementById('es-name').value,register_number:document.getElementById('es-reg').value,email:document.getElementById('es-email').value,department:document.getElementById('es-dept').value,class_id:document.getElementById('es-class').value||null};
+  const r=await fetch(`/api/admin/student/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  if((await r.json()).success){closeModal('edit-student-modal');loadStudents();}
+}
+async function delStudent(id,btn){
+  if(!confirm('Delete this student?'))return;
+  btn.disabled=true;
+  const r=await fetch(`/api/admin/student/${id}`,{method:'DELETE'});
+  if((await r.json()).success)loadStudents();
+}
+
+// ── TEACHERS ──────────────────────────────────────────────
+async function loadTeachers(){
+  await preloadSelects();
+  buildClassSelect(document.getElementById('at-class'));
+  buildClassSelect(document.getElementById('et-class'));
+  const tbody=document.getElementById('admin-teachers-body');
+  tbody.innerHTML='<tr><td colspan="7" style="text-align:center"><div class="loading-spinner"></div></td></tr>';
+  try{
+    const r=await fetch('/api/admin/teachers');const d=await r.json();
+    if(!d.teachers.length){
+      tbody.innerHTML='<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">👨‍🏫</div><p>No teachers yet</p></div></td></tr>';
+      return;
+    }
+    tbody.innerHTML=d.teachers.map((t,i)=>`
+      <tr>
+        <td>${i+1}</td><td class="td-name">${t.name}</td><td>${t.teacher_id}</td>
+        <td>${t.email}</td><td>${t.department||'—'}</td><td>${t.class_name||'—'}</td>
+        <td><div class="action-btns">
+          <button class="btn btn-ghost btn-sm" onclick="openEditTeacher(${t.id},'${esc(t.name)}','${esc(t.teacher_id)}','${esc(t.email)}','${esc(t.department||'')}',${t.class_id||0})">✏️</button>
+          <button class="btn btn-danger btn-sm" onclick="delTeacher(${t.id},this)">🗑️</button>
+        </div></td>
+      </tr>`).join('');
+  }catch(e){}
+}
+function openEditTeacher(id,name,tid,email,dept,cid){
+  document.getElementById('et-id').value=id; document.getElementById('et-name').value=name;
+  document.getElementById('et-tid').value=tid; document.getElementById('et-email').value=email;
+  document.getElementById('et-dept').value=dept;
+  buildClassSelect(document.getElementById('et-class'),cid);
+  document.getElementById('edit-teacher-modal').classList.add('show');
+}
+async function addTeacher(){
+  const errDiv=document.getElementById('at-error'); errDiv.style.display='none';
+  const body={name:document.getElementById('at-name').value,teacher_id:document.getElementById('at-tid').value,email:document.getElementById('at-email').value,department:document.getElementById('at-dept').value,class_id:document.getElementById('at-class').value||null,password:document.getElementById('at-pass').value};
+  const r=await fetch('/api/admin/teacher',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const d=await r.json();
+  if(d.success){closeModal('add-teacher-modal');loadTeachers();}
+  else{errDiv.textContent=d.error;errDiv.style.display='block';}
+}
+async function updateTeacher(){
+  const id=document.getElementById('et-id').value;
+  const body={name:document.getElementById('et-name').value,teacher_id:document.getElementById('et-tid').value,email:document.getElementById('et-email').value,department:document.getElementById('et-dept').value,class_id:document.getElementById('et-class').value||null};
+  const r=await fetch(`/api/admin/teacher/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  if((await r.json()).success){closeModal('edit-teacher-modal');loadTeachers();}
+}
+async function delTeacher(id,btn){
+  if(!confirm('Delete this teacher?'))return; btn.disabled=true;
+  const r=await fetch(`/api/admin/teacher/${id}`,{method:'DELETE'});
+  if((await r.json()).success)loadTeachers();
+}
+
+// ── CLASSES ───────────────────────────────────────────────
+async function loadClasses(){
+  await preloadSelects();
+  buildTeacherSelect(document.getElementById('ac-teacher'));
+  buildTeacherSelect(document.getElementById('ec-teacher'));
+  const tbody=document.getElementById('admin-classes-body');
+  tbody.innerHTML='<tr><td colspan="5" style="text-align:center"><div class="loading-spinner"></div></td></tr>';
+  try{
+    const r=await fetch('/api/admin/classes');const d=await r.json();
+    if(!d.classes.length){
+      tbody.innerHTML='<tr><td colspan="5"><div class="empty-state"><div class="empty-icon">🏫</div><p>No classes yet</p></div></td></tr>';
+      return;
+    }
+    tbody.innerHTML=d.classes.map((c,i)=>`
+      <tr>
+        <td>${i+1}</td><td class="td-name">${c.class_name}</td><td>${c.department}</td>
+        <td>${c.teacher_name||'<span class="badge badge-amber">Unassigned</span>'}</td>
+        <td><div class="action-btns">
+          <button class="btn btn-ghost btn-sm" onclick="openEditClass(${c.id},'${esc(c.class_name)}','${esc(c.department)}',${c.teacher_id||0})">✏️</button>
+          <button class="btn btn-danger btn-sm" onclick="delClass(${c.id},this)">🗑️</button>
+        </div></td>
+      </tr>`).join('');
+  }catch(e){}
+}
+function openEditClass(id,name,dept,tid){
+  document.getElementById('ec-id').value=id; document.getElementById('ec-name').value=name;
+  document.getElementById('ec-dept').value=dept;
+  buildTeacherSelect(document.getElementById('ec-teacher'),tid);
+  document.getElementById('edit-class-modal').classList.add('show');
+}
+async function addClass(){
+  const errDiv=document.getElementById('ac-error'); errDiv.style.display='none';
+  const body={class_name:document.getElementById('ac-name').value,department:document.getElementById('ac-dept').value,teacher_id:document.getElementById('ac-teacher').value||null};
+  const r=await fetch('/api/admin/class',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const d=await r.json();
+  if(d.success){closeModal('add-class-modal');loadClasses();preloadSelects();}
+  else{errDiv.textContent=d.error;errDiv.style.display='block';}
+}
+async function updateClass(){
+  const id=document.getElementById('ec-id').value;
+  const body={class_name:document.getElementById('ec-name').value,department:document.getElementById('ec-dept').value,teacher_id:document.getElementById('ec-teacher').value||null};
+  const r=await fetch(`/api/admin/class/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  if((await r.json()).success){closeModal('edit-class-modal');loadClasses();}
+}
+async function delClass(id,btn){
+  if(!confirm('Delete this class? All related students will be unassigned.'))return; btn.disabled=true;
+  const r=await fetch(`/api/admin/class/${id}`,{method:'DELETE'});
+  if((await r.json()).success)loadClasses();
+}
+
+// ── ADMINS ────────────────────────────────────────────────
+async function loadAdmins(){
+  const tbody=document.getElementById('admin-admins-body');
+  tbody.innerHTML='<tr><td colspan="5" style="text-align:center"><div class="loading-spinner"></div></td></tr>';
+  try{
+    const r=await fetch('/api/admin/admins'); const d=await r.json();
+    if(!d.admins||!d.admins.length){
+      tbody.innerHTML='<tr><td colspan="5"><div class="empty-state"><div class="empty-icon">🛡️</div><p>No admins found</p></div></td></tr>';
+      return;
+    }
+    tbody.innerHTML=d.admins.map((a,i)=>`
+      <tr>
+        <td style="color:var(--text-muted);">${i+1}</td>
+        <td class="td-name">${a.name}</td>
+        <td>${a.email}</td>
+        <td style="font-size:.82rem;color:var(--text-muted);">${a.created_at}</td>
+        <td style="text-align:center;">
+          <button class="btn btn-danger btn-sm" onclick="delAdmin(${a.id},'${esc(a.name)}',this)">🗑️ Delete</button>
+        </td>
+      </tr>`).join('');
+  }catch(e){}
+}
+
+async function addAdmin(){
+  const errDiv=document.getElementById('aa-error'); errDiv.style.display='none';
+  const body={
+    name    : document.getElementById('aa-name').value.trim(),
+    email   : document.getElementById('aa-email').value.trim(),
+    password: document.getElementById('aa-pass').value
+  };
+  if(!body.name||!body.email||!body.password){
+    errDiv.textContent='All fields are required.'; errDiv.style.display='block'; return;
+  }
+  const r=await fetch('/api/admin/admin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const d=await r.json();
+  if(d.success){
+    closeModal('add-admin-modal');
+    document.getElementById('aa-name').value='';
+    document.getElementById('aa-email').value='';
+    document.getElementById('aa-pass').value='';
+    loadAdmins();
+  } else {errDiv.textContent=d.error; errDiv.style.display='block';}
+}
+
+async function delAdmin(id,name,btn){
+  if(!confirm(`Delete admin "${name}"?\n\nThis action cannot be undone.`))return;
+  btn.disabled=true;
+  const r=await fetch(`/api/admin/admin/${id}`,{method:'DELETE'});
+  const d=await r.json();
+  if(d.success) loadAdmins();
+  else{alert(d.error||'Delete failed.');btn.disabled=false;}
+}
+
+function esc(s){return(s||'').replace(/'/g,"\\'");}
+
+// Init
+preloadSelects().then(()=>loadStats());
+</script>
+</body>
+</html>
